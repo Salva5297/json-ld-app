@@ -542,9 +542,63 @@ function generateContextFromOntologies() {
     }
   }
   
-  // Generate a sample document with the context
-  const doc = generateSampleDocument(state.selectedOntologies);
+  // Try to preserve existing document structure
+  let doc;
+  let isInvalid = false;
+  let currentContent = '';
   
+  try {
+    currentContent = getJsonLdContent();
+    if (currentContent.trim()) {
+      doc = JSON.parse(currentContent);
+    }
+  } catch (e) {
+    isInvalid = true;
+    console.warn('Invalid JSON detected, will preserve content but apply context separately', e);
+  }
+  
+  // CASE 1: Invalid JSON - Preserve content, update context editor only
+  if (isInvalid) {
+    // Generate context from selection
+    let newContext = {};
+    if (state.customOntologies.length > 0) {
+      for (const ont of state.customOntologies) {
+        newContext[ont.prefix] = ont.namespace;
+      }
+    }
+    
+    if (state.selectedOntologies.length > 0) {
+       const generatedCtx = generateContext(state.selectedOntologies);
+       // Handle Schema.org string vs object
+       if (typeof generatedCtx === 'string') {
+          if (state.customOntologies.length > 0 || state.selectedOntologies.length > 1) {
+            newContext['schema'] = 'https://schema.org/';
+            newContext['@vocab'] = 'https://schema.org/';
+          } else {
+             // Just schema.org string
+             newContext = generatedCtx;
+          }
+       } else {
+          // Merge object contexts
+          if (generatedCtx.schema) {
+             generatedCtx['@vocab'] = generatedCtx.schema;
+          }
+          newContext = { ...newContext, ...generatedCtx };
+       }
+    }
+    
+    // Update Context Editor ONLY
+    setContextContent(newContext);
+    showToast('Invalid JSON detected. Context updated in editor only.', 'warning');
+    return; // Stop here, do not overwrite editor
+  }
+  
+  // CASE 2: No content - Generate sample
+  if (!doc) {
+    doc = generateSampleDocument(state.selectedOntologies);
+  }
+
+  // CASE 3: Valid JSON - Merge context
   // Add custom ontologies to the context
   if (state.customOntologies.length > 0 && typeof doc['@context'] === 'object') {
     for (const ont of state.customOntologies) {
@@ -556,6 +610,7 @@ function generateContextFromOntologies() {
     if (typeof doc['@context'] === 'string') {
       if (doc['@context'].includes('schema.org')) {
         newContext['schema'] = 'https://schema.org/';
+        newContext['@vocab'] = 'https://schema.org/';
       }
     }
     for (const ont of state.customOntologies) {
@@ -564,6 +619,29 @@ function generateContextFromOntologies() {
     doc['@context'] = newContext;
   }
   
+  // Start with the base generated context
+  if (state.selectedOntologies.length > 0) {
+     const generatedCtx = generateContext(state.selectedOntologies);
+     
+     // specific logic for merging Schema.org string vs object
+     if (typeof generatedCtx === 'string' && typeof doc['@context'] !== 'string') {
+        if (!doc['@context']) doc['@context'] = {};
+        doc['@context']['schema'] = 'https://schema.org/';
+        doc['@context']['@vocab'] = 'https://schema.org/';
+     } else if (typeof generatedCtx === 'object') {
+        if (!doc['@context'] || typeof doc['@context'] === 'string') doc['@context'] = {};
+        
+        // If we are merging Schema.org, ensure we set it as vocab to support unprefixed terms
+        if (generatedCtx.schema) {
+          generatedCtx['@vocab'] = generatedCtx.schema;
+        }
+        
+        Object.assign(doc['@context'], generatedCtx);
+     } else if (!doc['@context']) {
+        doc['@context'] = generatedCtx;
+     }
+  }
+
   setJsonLdContent(doc);
   
   // Also update the context editor

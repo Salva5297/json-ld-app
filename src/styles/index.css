@@ -1350,8 +1350,25 @@ body {
 }
 
 @media (max-width: 768px) {
+  html, body {
+    overflow: auto;
+  }
+
+  #app {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
   .app-header {
-    padding: 0 var(--space-4);
+    height: auto;
+    padding: var(--space-3) var(--space-4);
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+
+  .header-left, .header-right {
+    flex-wrap: wrap;
   }
 
   .header-btn span {
@@ -1359,12 +1376,23 @@ body {
   }
 
   .app-main {
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr 1fr auto;
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+    padding-bottom: var(--space-8);
   }
 
   .panel {
-    min-height: 300px;
+    min-height: 500px;
+    height: auto;
+    max-height: none !important;
+    overflow: visible;
+  }
+
+  /* Ensure editors have height on mobile */
+  .editor-container {
+    height: 350px;
+    min-height: 350px;
   }
 
   .panel-shacl {
@@ -1378,6 +1406,15 @@ body {
   .tabs {
     overflow-x: auto;
     padding-bottom: var(--space-2);
+  }
+
+  .custom-ontology-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .custom-ontology-form button {
+    margin-top: var(--space-2);
   }
 }
 
