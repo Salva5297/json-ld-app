@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description"
+    content="JSON-LD Builder & Validator - Create, transform, and validate JSON-LD documents with SHACL shapes support" />
+  <title>JSON-LD Builder & Validator</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+</head>
+
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo">
+          <svg class="logo-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2" />
+            <circle cx="10" cy="12" r="3" fill="currentColor" />
+            <circle cx="22" cy="12" r="3" fill="currentColor" />
+            <circle cx="16" cy="22" r="3" fill="currentColor" />
+            <line x1="10" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="1.5" />
+            <line x1="10" y1="12" x2="16" y2="22" stroke="currentColor" stroke-width="1.5" />
+            <line x1="22" y1="12" x2="16" y2="22" stroke="currentColor" stroke-width="1.5" />
+          </svg>
+          <h1>JSON-LD Builder</h1>
+        </div>
+      </div>
+      <div class="header-right">
+        <button id="examples-btn" class="header-btn" title="Load Example">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+          </svg>
+          <span>Examples</span>
+        </button>
+        <button id="share-btn" class="header-btn" title="Share">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="18" cy="5" r="3" />
+            <circle cx="6" cy="12" r="3" />
+            <circle cx="18" cy="19" r="3" />
+            <path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" />
+          </svg>
+          <span>Share</span>
+        </button>
+        <div class="divider"></div>
+        <button id="theme-toggle" class="icon-btn" title="Toggle Theme">
+          <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2">
+            <circle cx="12" cy="12" r="5" />
+            <line x1="12" y1="1" x2="12" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="23" />
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+            <line x1="1" y1="12" x2="3" y2="12" />
+            <line x1="21" y1="12" x2="23" y2="12" />
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+          </svg>
+          <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 A7 7 0 0 0 21 12.79z" />
+          </svg>
+        </button>
+        <button id="help-btn" class="icon-btn" title="Help">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="app-main">
+      <!-- Left Panel: JSON-LD Input -->
+      <section class="panel panel-input">
+        <div class="panel-header">
+          <h2>JSON-LD Input</h2>
+          <div class="panel-actions">
+            <button id="format-btn" class="small-btn" title="Format JSON (Ctrl+Shift+F)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="21" y1="10" x2="3" y2="10" />
+                <line x1="21" y1="6" x2="3" y2="6" />
+                <line x1="21" y1="14" x2="3" y2="14" />
+                <line x1="21" y1="18" x2="3" y2="18" />
+              </svg>
+            </button>
+            <button id="clear-btn" class="small-btn" title="Clear">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3,6 5,6 21,6" />
+                <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6M8,6V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div id="jsonld-editor" class="editor-container"></div>
+
+        <!-- Context Editor Section -->
+        <div class="context-section">
+          <div class="panel-header collapsible" id="context-header">
+            <h3>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
+              @context Editor
+            </h3>
+            <div class="panel-actions">
+              <button id="extract-context-btn" class="small-btn" title="Extract @context from JSON-LD">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="17 1 21 5 17 9" />
+                  <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                  <polyline points="7 23 3 19 7 15" />
+                  <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                </svg>
+              </button>
+              <button id="apply-context-btn" class="primary-btn small" title="Apply context to JSON-LD">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Apply
+              </button>
+              <button id="compress-context-btn" class="small-btn" title="Compress context to internal URI">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 14h6v6" />
+                  <path d="M20 10h-6V4" />
+                  <polyline points="14 10 21 3" />
+                  <polyline points="3 21 10 14" />
+                </svg>
+              </button>
+              <button id="toggle-context-btn" class="small-btn" title="Expand/Collapse">
+                <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div id="context-editor-section" class="context-editor-wrapper">
+            <div id="context-editor" class="editor-container small"></div>
+          </div>
+        </div>
+
+        <!-- Ontology Selector -->
+        <div class="ontology-section">
+          <div class="ontology-header">
+            <h3>Generate Context from Ontologies</h3>
+            <button id="generate-context-btn" class="primary-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="13,2 3,14 12,14 11,22 21,10 12,10" />
+              </svg>
+              Generate
+            </button>
+          </div>
+          <div class="ontology-grid" id="ontology-grid">
+            <!-- Ontology checkboxes will be inserted here -->
+          </div>
+
+          <!-- Custom Ontology Input -->
+          <div class="custom-ontology-section">
+            <h4>Add Custom Ontology</h4>
+            <div class="custom-ontology-form">
+              <div class="input-group">
+                <label for="custom-prefix">Prefix</label>
+                <input type="text" id="custom-prefix" placeholder="ex" maxlength="20">
+              </div>
+              <div class="input-group">
+                <label for="custom-namespace">Namespace URL</label>
+                <input type="text" id="custom-namespace" placeholder="https://example.org/ns#">
+              </div>
+              <button id="add-custom-ontology-btn" class="secondary-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Add
+              </button>
+            </div>
+            <div id="custom-ontologies-list" class="custom-ontologies-list">
+              <!-- Custom ontologies will be added here -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Frame Input (shown when Framed tab is active) -->
+        <div id="frame-section" class="frame-section hidden">
+          <div class="panel-header">
+            <h3>JSON-LD Frame</h3>
+          </div>
+          <div id="frame-editor" class="editor-container small"></div>
+        </div>
+      </section>
+
+      <!-- Center Panel: Visualizations -->
+      <section class="panel panel-output">
+        <div class="tabs-wrapper">
+          <div class="tabs" id="view-tabs">
+            <button class="tab active" data-view="expanded">Expanded</button>
+            <button class="tab" data-view="compacted">Compacted</button>
+            <button class="tab" data-view="flattened">Flattened</button>
+            <button class="tab" data-view="framed">Framed</button>
+            <button class="tab" data-view="nquads">N-Quads</button>
+            <button class="tab" data-view="canonized">Canonized</button>
+            <button class="tab" data-view="table">Table</button>
+            <button class="tab" data-view="graph">Graph</button>
+          </div>
+          <div class="tabs-actions">
+            <button id="copy-output-btn" class="small-btn" title="Copy Output">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+            </button>
+            <button id="download-output-btn" class="small-btn" title="Download">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="output-container" id="output-container">
+          <div id="output-expanded" class="output-view active"></div>
+          <div id="output-compacted" class="output-view"></div>
+          <div id="output-flattened" class="output-view"></div>
+          <div id="output-framed" class="output-view"></div>
+          <div id="output-nquads" class="output-view"></div>
+          <div id="output-canonized" class="output-view"></div>
+          <div id="output-table" class="output-view"></div>
+          <div id="output-graph" class="output-view"></div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar" id="status-bar">
+          <span class="status-icon status-ready">●</span>
+          <span class="status-text">Ready</span>
+        </div>
+      </section>
+
+      <!-- Right Panel: SHACL -->
+      <section class="panel panel-shacl">
+        <div class="panel-header">
+          <h2>SHACL Shapes</h2>
+          <div class="panel-actions">
+            <button id="validate-btn" class="primary-btn" title="Validate JSON-LD against SHACL">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+              Validate
+            </button>
+          </div>
+        </div>
+        <div id="shacl-editor" class="editor-container"></div>
+
+        <div class="shacl-actions">
+          <button id="generate-shacl-btn" class="secondary-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="12" y1="18" x2="12" y2="12" />
+              <line x1="9" y1="15" x2="15" y2="15" />
+            </svg>
+            Generate from JSON-LD
+          </button>
+          <button id="load-shacl-btn" class="secondary-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            Load SHACL
+          </button>
+        </div>
+
+        <!-- Validation Report -->
+        <div id="validation-report" class="validation-report hidden">
+          <div class="report-header">
+            <h3>Validation Report</h3>
+            <div class="report-actions">
+              <button id="download-report-btn" class="secondary-btn" title="Download Report (JSON-LD)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Download
+              </button>
+            </div>
+          </div>
+          <div id="report-content" class="report-content"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Modals -->
+    <div id="examples-modal" class="modal hidden">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Load Example</h2>
+          <button class="modal-close icon-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body" id="examples-list"></div>
+      </div>
+    </div>
+
+    <div id="help-modal" class="modal hidden">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content large">
+        <div class="modal-header">
+          <h2>Help & Documentation</h2>
+          <button class="modal-close icon-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body" id="help-content"></div>
+      </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>
