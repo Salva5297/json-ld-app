@@ -354,7 +354,7 @@ body {
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  overflow: auto; /* Permitir scroll para ver contenido con resize */
   min-width: 0;
 }
 
@@ -384,34 +384,43 @@ body {
 
 /* Editor Container */
 .editor-container {
-  flex: 1 1 auto;
+  flex: 0 0 auto; /* No crecer/encoger automáticamente */
+  height: 350px; /* Altura inicial fija */
   overflow: hidden;
   background: var(--color-bg-primary);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   resize: vertical;
-  /* User requested resizable containers */
   min-height: 150px;
   max-height: 80vh;
   position: relative;
 }
 
+/* Editor principal de JSON-LD - más grande */
+.panel-input > .editor-container:first-of-type {
+  height: 400px;
+  min-height: 200px;
+}
+
+/* Editor de SHACL - más grande */
+.panel-shacl > .editor-container {
+  height: 400px;
+  min-height: 200px;
+}
+
 /* When panel has resizable editors, allow overflow */
 .panel-input,
 .panel-shacl {
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: auto;
 }
 
 .editor-container.small {
   flex: 0 0 auto;
-  /* Allow resize to work better */
   height: 180px;
-  /* Default height */
   min-height: 80px;
   max-height: 400px;
   resize: vertical;
-  overflow: auto;
+  overflow: hidden;
 }
 
 /* CodeMirror overrides */
@@ -576,13 +585,12 @@ body {
 }
 
 .context-section .editor-container.small {
-  min-height: 120px;
+  height: 180px;
+  min-height: 100px;
   max-height: 400px;
   flex: 0 0 auto;
-  overflow-y: auto;
-  overflow-x: hidden;
-  display: flex;
-  flex-direction: column;
+  overflow: hidden;
+  resize: vertical;
 }
 
 .primary-btn.small {
@@ -809,12 +817,10 @@ body {
 /* Output Container */
 .output-container {
   flex: 1 1 auto;
+  height: 100%; /* Ocupar espacio disponible */
   overflow: auto;
   position: relative;
-  resize: vertical;
-  /* User requested resizable */
   min-height: 200px;
-  max-height: 90vh;
 }
 
 .output-view {

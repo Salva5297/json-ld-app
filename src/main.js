@@ -982,6 +982,24 @@ async function processJsonLd() {
           showError('output-graph', result.error);
         }
         break;
+        
+      case 'turtle':
+        result = await jsonldProcessor.toTurtle(doc);
+        if (result.success) {
+          renderTextOutput('output-turtle', result.data);
+        } else {
+          showError('output-turtle', result.error);
+        }
+        break;
+        
+      case 'yamlld':
+        result = await jsonldProcessor.toYamlLd(doc);
+        if (result.success) {
+          renderTextOutput('output-yamlld', result.data);
+        } else {
+          showError('output-yamlld', result.error);
+        }
+        break;
     }
     
     setStatus('ready', 'Ready');
@@ -1356,7 +1374,14 @@ function downloadOutput() {
   if (!activeView) return;
   
   const text = activeView.textContent || '';
-  const ext = state.currentView === 'nquads' || state.currentView === 'canonized' ? 'nq' : 'json';
+  let ext = 'json';
+  if (state.currentView === 'nquads' || state.currentView === 'canonized') {
+    ext = 'nq';
+  } else if (state.currentView === 'turtle') {
+    ext = 'ttl';
+  } else if (state.currentView === 'yamlld') {
+    ext = 'yaml';
+  }
   storage.downloadFile(text, `jsonld-${state.currentView}.${ext}`);
   showToast('Download started', 'success');
 }

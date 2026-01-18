@@ -542,6 +542,261 @@ export function getContextCacheSize() {
   return remoteContextCache.size;
 }
 
+/**
+ * Convert JSON-LD to Turtle format
+ * Uses N-Quads as intermediate format and converts to Turtle
+ */
+export async function toTurtle(doc) {
+  try {
+    const nquadsResult = await toNQuads(doc);
+    if (!nquadsResult.success) {
+      return nquadsResult;
+    }
+
+    const nquads = nquadsResult.data;
+    if (!nquads.trim()) {
+      return { success: true, data: '# Empty document - no triples generated' };
+    }
+
+    // Parse N-Quads and collect prefixes
+    const lines = nquads.split('\n').filter(line => line.trim());
+    const prefixMap = new Map();
+    const triples = [];
+
+    // Common prefixes to detect
+    const knownPrefixes = {
+      'http://www.w3.org/1999/02/22-rdf-syntax-ns#': 'rdf',
+      'http://www.w3.org/2000/01/rdf-schema#': 'rdfs',
+      'http://www.w3.org/2001/XMLSchema#': 'xsd',
+      'http://www.w3.org/2002/07/owl#': 'owl',
+      'https://schema.org/': 'schema',
+      'http://schema.org/': 'schema',
+      'http://xmlns.com/foaf/0.1/': 'foaf',
+      'http://purl.org/dc/terms/': 'dcterms',
+      'http://purl.org/dc/elements/1.1/': 'dc',
+      'http://www.w3.org/ns/shacl#': 'sh',
+      'http://www.w3.org/2004/02/skos/core#': 'skos',
+      'http://www.w3.org/ns/prov#': 'prov',
+      'https://www.w3.org/2019/wot/td#': 'td',
+      'https://www.w3.org/2019/wot/json-schema#': 'jsonschema',
+      'https://www.w3.org/2019/wot/hypermedia#': 'hctl',
+      'https://www.w3.org/2019/wot/security#': 'wotsec',
+      'urn:sdt:': 'sdt'
+    };
+
+    // Extract URIs and build prefix map
+    const uriPattern = /<([^>]+)>/g;
+    for (const line of lines) {
+      let match;
+      while ((match = uriPattern.exec(line)) !== null) {
+        const uri = match[1];
+        for (const [namespace, prefix] of Object.entries(knownPrefixes)) {
+          if (uri.startsWith(namespace) && !prefixMap.has(namespace)) {
+            prefixMap.set(namespace, prefix);
+          }
+        }
+      }
+    }
+
+    // Function to compact URI using prefixes
+    const compactUri = (uri) => {
+      for (const [namespace, prefix] of prefixMap.entries()) {
+        if (uri.startsWith(namespace)) {
+          const localName = uri.slice(namespace.length);
+          // Check if local name is valid for prefixed name
+          if (/^[a-zA-Z_][a-zA-Z0-9_.-]*$/.test(localName)) {
+            return `${prefix}:${localName}`;
+          }
+        }
+      }
+      return `<${uri}>`;
+    };
+
+    // Parse each N-Quad line
+    for (const line of lines) {
+      const match = line.match(/^<([^>]+)>\s+<([^>]+)>\s+(.+?)\s*\.\s*$/);
+      if (match) {
+        const [, subject, predicate, objectPart] = match;
+        let object;
+
+        if (objectPart.startsWith('<') && objectPart.endsWith('>')) {
+          // URI object
+          object = compactUri(objectPart.slice(1, -1));
+        } else if (objectPart.startsWith('"')) {
+          // Literal - keep as is
+          object = objectPart;
+        } else {
+          object = objectPart;
+        }
+
+        triples.push({
+          subject: compactUri(subject),
+          predicate: compactUri(predicate),
+          object
+        });
+      }
+    }
+
+    // Build Turtle output
+    let turtle = '';
+
+    // Add prefixes
+    for (const [namespace, prefix] of prefixMap.entries()) {
+      turtle += `@prefix ${prefix}: <${namespace}> .\n`;
+    }
+    if (prefixMap.size > 0) {
+      turtle += '\n';
+    }
+
+    // Group triples by subject
+    const subjectGroups = new Map();
+    for (const triple of triples) {
+      if (!subjectGroups.has(triple.subject)) {
+        subjectGroups.set(triple.subject, []);
+      }
+      subjectGroups.get(triple.subject).push(triple);
+    }
+
+    // Output grouped triples
+    for (const [subject, predicates] of subjectGroups.entries()) {
+      turtle += `${subject}\n`;
+      for (let i = 0; i < predicates.length; i++) {
+        const { predicate, object } = predicates[i];
+        const separator = i < predicates.length - 1 ? ' ;' : ' .';
+        turtle += `    ${predicate} ${object}${separator}\n`;
+      }
+      turtle += '\n';
+    }
+
+    return { success: true, data: turtle.trim() };
+  } catch (error) {
+    console.error('Turtle conversion error:', error);
+    return { success: false, error: `Turtle conversion failed: ${error.message}` };
+  }
+}
+
+/**
+ * Convert JSON-LD to YAML-LD format
+ * YAML-LD is a YAML representation of JSON-LD
+ */
+export async function toYamlLd(doc) {
+  try {
+    // Convert JSON to YAML
+    const yaml = jsonToYaml(doc, 0);
+    return { success: true, data: yaml };
+  } catch (error) {
+    console.error('YAML-LD conversion error:', error);
+    return { success: false, error: `YAML-LD conversion failed: ${error.message}` };
+  }
+}
+
+/**
+ * Convert a JSON value to YAML string
+ */
+function jsonToYaml(value, indent) {
+  const spaces = '  '.repeat(indent);
+  
+  if (value === null) {
+    return 'null';
+  }
+  
+  if (value === undefined) {
+    return '';
+  }
+  
+  if (typeof value === 'boolean') {
+    return value ? 'true' : 'false';
+  }
+  
+  if (typeof value === 'number') {
+    return String(value);
+  }
+  
+  if (typeof value === 'string') {
+    // Check if string needs quoting
+    if (value.includes('\n') || value.includes(':') || value.includes('#') || 
+        value.includes('"') || value.includes("'") || value.startsWith('@') ||
+        value.startsWith(' ') || value.endsWith(' ') ||
+        /^[0-9]/.test(value) || ['true', 'false', 'null', 'yes', 'no'].includes(value.toLowerCase())) {
+      // Use double quotes and escape
+      return '"' + value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n') + '"';
+    }
+    return value;
+  }
+  
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return '[]';
+    }
+    
+    // Check if all items are simple (not objects/arrays)
+    const allSimple = value.every(item => 
+      item === null || typeof item !== 'object'
+    );
+    
+    if (allSimple && value.length <= 5) {
+      // Inline array for short simple arrays
+      const items = value.map(item => jsonToYaml(item, 0));
+      return '[' + items.join(', ') + ']';
+    }
+    
+    // Multi-line array
+    let result = '';
+    for (const item of value) {
+      if (typeof item === 'object' && item !== null) {
+        const yaml = jsonToYaml(item, indent + 1);
+        const lines = yaml.split('\n');
+        result += '\n' + spaces + '- ' + lines[0];
+        for (let i = 1; i < lines.length; i++) {
+          result += '\n' + spaces + '  ' + lines[i];
+        }
+      } else {
+        result += '\n' + spaces + '- ' + jsonToYaml(item, 0);
+      }
+    }
+    return result;
+  }
+  
+  if (typeof value === 'object') {
+    const keys = Object.keys(value);
+    if (keys.length === 0) {
+      return '{}';
+    }
+    
+    let result = '';
+    let first = true;
+    for (const key of keys) {
+      const val = value[key];
+      const keyStr = key.includes(':') || key.includes(' ') || key.startsWith('@') 
+        ? '"' + key + '"' 
+        : key;
+      
+      if (!first) {
+        result += '\n' + spaces;
+      }
+      first = false;
+      
+      if (val === null || typeof val !== 'object') {
+        result += keyStr + ': ' + jsonToYaml(val, 0);
+      } else if (Array.isArray(val) && val.length === 0) {
+        result += keyStr + ': []';
+      } else if (typeof val === 'object' && Object.keys(val).length === 0) {
+        result += keyStr + ': {}';
+      } else {
+        const yaml = jsonToYaml(val, indent + 1);
+        if (yaml.startsWith('\n')) {
+          result += keyStr + ':' + yaml;
+        } else {
+          result += keyStr + ': ' + yaml;
+        }
+      }
+    }
+    return result;
+  }
+  
+  return String(value);
+}
+
 export default {
   expand,
   compact,
@@ -549,6 +804,8 @@ export default {
   frame,
   toNQuads,
   canonize,
+  toTurtle,
+  toYamlLd,
   parseNQuads,
   extractGraphData,
   validate,
