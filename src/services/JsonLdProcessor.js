@@ -618,11 +618,6 @@ export async function toTurtle(doc) {
       return { success: true, data: '# Empty document - no triples generated' };
     }
 
-    // Parse N-Quads and collect prefixes
-    const lines = nquads.split('\n').filter(line => line.trim());
-    const prefixMap = new Map();
-    const triples = [];
-
     // Common prefixes to detect
     const knownPrefixes = {
       'http://www.w3.org/1999/02/22-rdf-syntax-ns#': 'rdf',
@@ -641,61 +636,77 @@ export async function toTurtle(doc) {
       'https://www.w3.org/2019/wot/json-schema#': 'jsonschema',
       'https://www.w3.org/2019/wot/hypermedia#': 'hctl',
       'https://www.w3.org/2019/wot/security#': 'wotsec',
+      'http://purl.org/goodrelations/v1#': 'gr',
+      'http://www.productontology.org/id/': 'pto',
       'urn:sdt:': 'sdt'
     };
 
-    // Extract URIs and build prefix map
-    const uriPattern = /<([^>]+)>/g;
+    const prefixMap = new Map();
+    const triples = [];
+
+    // Parse N-Quads line by line
+    const lines = nquads.split('\n').filter(line => line.trim() && !line.trim().startsWith('#'));
+    
     for (const line of lines) {
-      let match;
-      while ((match = uriPattern.exec(line)) !== null) {
-        const uri = match[1];
-        for (const [namespace, prefix] of Object.entries(knownPrefixes)) {
-          if (uri.startsWith(namespace) && !prefixMap.has(namespace)) {
-            prefixMap.set(namespace, prefix);
-          }
+      const triple = parseNQuadLine(line);
+      if (triple) {
+        triples.push(triple);
+        
+        // Collect prefixes from URIs
+        if (triple.subject.type === 'uri') {
+          collectPrefix(triple.subject.value, knownPrefixes, prefixMap);
+        }
+        if (triple.predicate.type === 'uri') {
+          collectPrefix(triple.predicate.value, knownPrefixes, prefixMap);
+        }
+        if (triple.object.type === 'uri') {
+          collectPrefix(triple.object.value, knownPrefixes, prefixMap);
+        }
+        if (triple.object.datatype) {
+          collectPrefix(triple.object.datatype, knownPrefixes, prefixMap);
         }
       }
     }
 
-    // Function to compact URI using prefixes
-    const compactUri = (uri) => {
-      for (const [namespace, prefix] of prefixMap.entries()) {
-        if (uri.startsWith(namespace)) {
-          const localName = uri.slice(namespace.length);
-          // Check if local name is valid for prefixed name
-          if (/^[a-zA-Z_][a-zA-Z0-9_.-]*$/.test(localName)) {
-            return `${prefix}:${localName}`;
+    // Function to format a term in Turtle
+    const formatTerm = (term) => {
+      if (term.type === 'blank') {
+        return term.value;
+      }
+      if (term.type === 'uri') {
+        // Try to compact with prefix
+        for (const [namespace, prefix] of prefixMap.entries()) {
+          if (term.value.startsWith(namespace)) {
+            const localName = term.value.slice(namespace.length);
+            if (/^[a-zA-Z_][a-zA-Z0-9_.-]*$/.test(localName)) {
+              return `${prefix}:${localName}`;
+            }
           }
         }
+        return `<${term.value}>`;
       }
-      return `<${uri}>`;
+      if (term.type === 'literal') {
+        let result = '"' + term.value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n') + '"';
+        if (term.language) {
+          result += '@' + term.language;
+        } else if (term.datatype && term.datatype !== 'http://www.w3.org/2001/XMLSchema#string') {
+          // Compact datatype if possible
+          let datatypeStr = `<${term.datatype}>`;
+          for (const [namespace, prefix] of prefixMap.entries()) {
+            if (term.datatype.startsWith(namespace)) {
+              const localName = term.datatype.slice(namespace.length);
+              if (/^[a-zA-Z_][a-zA-Z0-9_.-]*$/.test(localName)) {
+                datatypeStr = `${prefix}:${localName}`;
+                break;
+              }
+            }
+          }
+          result += '^^' + datatypeStr;
+        }
+        return result;
+      }
+      return String(term.value);
     };
-
-    // Parse each N-Quad line
-    for (const line of lines) {
-      const match = line.match(/^<([^>]+)>\s+<([^>]+)>\s+(.+?)\s*\.\s*$/);
-      if (match) {
-        const [, subject, predicate, objectPart] = match;
-        let object;
-
-        if (objectPart.startsWith('<') && objectPart.endsWith('>')) {
-          // URI object
-          object = compactUri(objectPart.slice(1, -1));
-        } else if (objectPart.startsWith('"')) {
-          // Literal - keep as is
-          object = objectPart;
-        } else {
-          object = objectPart;
-        }
-
-        triples.push({
-          subject: compactUri(subject),
-          predicate: compactUri(predicate),
-          object
-        });
-      }
-    }
 
     // Build Turtle output
     let turtle = '';
@@ -711,10 +722,14 @@ export async function toTurtle(doc) {
     // Group triples by subject
     const subjectGroups = new Map();
     for (const triple of triples) {
-      if (!subjectGroups.has(triple.subject)) {
-        subjectGroups.set(triple.subject, []);
+      const subjectKey = formatTerm(triple.subject);
+      if (!subjectGroups.has(subjectKey)) {
+        subjectGroups.set(subjectKey, []);
       }
-      subjectGroups.get(triple.subject).push(triple);
+      subjectGroups.get(subjectKey).push({
+        predicate: formatTerm(triple.predicate),
+        object: formatTerm(triple.object)
+      });
     }
 
     // Output grouped triples
@@ -733,6 +748,143 @@ export async function toTurtle(doc) {
     console.error('Turtle conversion error:', error);
     return { success: false, error: `Turtle conversion failed: ${error.message}` };
   }
+}
+
+/**
+ * Collect prefix from URI if it matches known prefixes
+ */
+function collectPrefix(uri, knownPrefixes, prefixMap) {
+  for (const [namespace, prefix] of Object.entries(knownPrefixes)) {
+    if (uri.startsWith(namespace) && !prefixMap.has(namespace)) {
+      prefixMap.set(namespace, prefix);
+    }
+  }
+}
+
+/**
+ * Parse a single N-Quad line into subject, predicate, object
+ */
+function parseNQuadLine(line) {
+  line = line.trim();
+  if (!line || line.startsWith('#')) return null;
+  
+  // Remove trailing dot and whitespace
+  if (line.endsWith('.')) {
+    line = line.slice(0, -1).trim();
+  }
+  
+  let pos = 0;
+  
+  // Parse subject (URI or blank node)
+  const subject = parseNQuadTerm(line, pos);
+  if (!subject) return null;
+  pos = subject.endPos;
+  
+  // Skip whitespace
+  while (pos < line.length && /\s/.test(line[pos])) pos++;
+  
+  // Parse predicate (URI)
+  const predicate = parseNQuadTerm(line, pos);
+  if (!predicate) return null;
+  pos = predicate.endPos;
+  
+  // Skip whitespace
+  while (pos < line.length && /\s/.test(line[pos])) pos++;
+  
+  // Parse object (URI, blank node, or literal)
+  const object = parseNQuadTerm(line, pos);
+  if (!object) return null;
+  
+  return {
+    subject: subject.term,
+    predicate: predicate.term,
+    object: object.term
+  };
+}
+
+/**
+ * Parse a single term from an N-Quad line
+ */
+function parseNQuadTerm(line, pos) {
+  // Skip whitespace
+  while (pos < line.length && /\s/.test(line[pos])) pos++;
+  
+  if (pos >= line.length) return null;
+  
+  // URI: <...>
+  if (line[pos] === '<') {
+    const end = line.indexOf('>', pos + 1);
+    if (end === -1) return null;
+    return {
+      term: { type: 'uri', value: line.slice(pos + 1, end) },
+      endPos: end + 1
+    };
+  }
+  
+  // Blank node: _:...
+  if (line[pos] === '_' && line[pos + 1] === ':') {
+    let end = pos + 2;
+    while (end < line.length && /[a-zA-Z0-9_.-]/.test(line[end])) end++;
+    return {
+      term: { type: 'blank', value: line.slice(pos, end) },
+      endPos: end
+    };
+  }
+  
+  // Literal: "..."
+  if (line[pos] === '"') {
+    let end = pos + 1;
+    let value = '';
+    while (end < line.length) {
+      if (line[end] === '\\' && end + 1 < line.length) {
+        // Escape sequence
+        const next = line[end + 1];
+        if (next === 'n') value += '\n';
+        else if (next === 'r') value += '\r';
+        else if (next === 't') value += '\t';
+        else if (next === '\\') value += '\\';
+        else if (next === '"') value += '"';
+        else value += next;
+        end += 2;
+      } else if (line[end] === '"') {
+        end++;
+        break;
+      } else {
+        value += line[end];
+        end++;
+      }
+    }
+    
+    let language = null;
+    let datatype = null;
+    
+    // Check for language tag: @...
+    if (line[end] === '@') {
+      const langStart = end + 1;
+      let langEnd = langStart;
+      while (langEnd < line.length && /[a-zA-Z0-9-]/.test(line[langEnd])) langEnd++;
+      language = line.slice(langStart, langEnd);
+      end = langEnd;
+    }
+    // Check for datatype: ^^<...>
+    else if (line[end] === '^' && line[end + 1] === '^') {
+      end += 2;
+      if (line[end] === '<') {
+        const dtEnd = line.indexOf('>', end + 1);
+        if (dtEnd !== -1) {
+          datatype = line.slice(end + 1, dtEnd);
+          end = dtEnd + 1;
+        }
+      }
+    }
+    
+    return {
+      term: { type: 'literal', value, language, datatype },
+      endPos: end
+    };
+  }
+  
+  return null;
 }
 
 /**
