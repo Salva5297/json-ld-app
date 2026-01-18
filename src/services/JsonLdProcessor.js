@@ -310,21 +310,71 @@ export async function flatten(doc, context = null) {
 /**
  * Frame a JSON-LD document
  * Reshapes the document according to a frame
- * Returns expanded URIs (not compacted with context)
+ * Returns with @graph structure and embedded objects
  */
 export async function frame(doc, frameDoc) {
   try {
-    // First, frame with the provided frame document
-    const framed = await jsonld.frame(doc, frameDoc);
+    // First expand the document to get full URIs
+    const expanded = await jsonld.expand(doc);
     
-    // Then expand to get full URIs (remove context compaction)
-    // This gives us the expanded form with @graph structure
-    const expanded = await jsonld.expand(framed);
+    // Create a frame that embeds everything and uses expanded URIs
+    const expandedFrame = {
+      "@embed": "@always"
+    };
     
-    // Flatten to get proper @graph structure with @id on all nodes
-    const flattened = await jsonld.flatten(expanded);
+    // Frame the expanded document with embedding
+    const framed = await jsonld.frame(expanded, expandedFrame, {
+      embed: '@always',
+      explicit: false,
+      requireAll: false,
+      omitDefault: true
+    });
     
-    return { success: true, data: flattened };
+    // The result should have @graph structure
+    // Remove @context since we want expanded URIs
+    if (framed['@context']) {
+      delete framed['@context'];
+    }
+    
+    // Simplify the structure - remove unnecessary arrays for single values
+    const simplify = (obj) => {
+      if (Array.isArray(obj)) {
+        if (obj.length === 1) {
+          return simplify(obj[0]);
+        }
+        return obj.map(simplify);
+      }
+      if (typeof obj === 'object' && obj !== null) {
+        const result = {};
+        for (const [key, value] of Object.entries(obj)) {
+          if (key === '@graph') {
+            // Keep @graph as array
+            result[key] = Array.isArray(value) ? value.map(simplify) : [simplify(value)];
+          } else if (key === '@id' || key === '@type' || key === '@value') {
+            // Keep these as-is (not arrays)
+            result[key] = value;
+          } else if (Array.isArray(value) && value.length === 1) {
+            // Simplify single-element arrays for properties
+            const simplified = simplify(value[0]);
+            // If it's just a value wrapper, extract the value
+            if (typeof simplified === 'object' && simplified !== null && 
+                Object.keys(simplified).length === 1 && simplified['@value'] !== undefined) {
+              result[key] = simplified['@value'];
+            } else {
+              result[key] = simplified;
+            }
+          } else {
+            result[key] = simplify(value);
+          }
+        }
+        return result;
+      }
+      return obj;
+    };
+    
+    const simplified = simplify(framed);
+    
+    return { success: true, data: simplified };
   } catch (error) {
     return { success: false, error: error.message };
   }
