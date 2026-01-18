@@ -384,23 +384,34 @@ body {
 
 /* Editor Container */
 .editor-container {
-  flex: 1;
+  flex: 1 1 auto;
   overflow: hidden;
   background: var(--color-bg-primary);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   resize: vertical;
   /* User requested resizable containers */
-  min-height: 100px;
+  min-height: 150px;
+  max-height: 80vh;
+  position: relative;
+}
+
+/* When panel has resizable editors, allow overflow */
+.panel-input,
+.panel-shacl {
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .editor-container.small {
   flex: 0 0 auto;
   /* Allow resize to work better */
-  height: 200px;
+  height: 180px;
   /* Default height */
-  min-height: 100px;
+  min-height: 80px;
+  max-height: 400px;
   resize: vertical;
+  overflow: auto;
 }
 
 /* CodeMirror overrides */
@@ -797,11 +808,13 @@ body {
 
 /* Output Container */
 .output-container {
-  flex: 1;
-  overflow: hidden;
+  flex: 1 1 auto;
+  overflow: auto;
   position: relative;
   resize: vertical;
   /* User requested resizable */
+  min-height: 200px;
+  max-height: 90vh;
 }
 
 .output-view {

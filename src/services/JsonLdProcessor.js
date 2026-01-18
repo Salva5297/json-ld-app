@@ -46,6 +46,94 @@ export function registerContext(context) {
   return urn;
 }
 
+// Cache for fetched remote contexts to avoid repeated requests
+const remoteContextCache = new Map();
+
+// List of CORS proxy services to try (in order of preference)
+const CORS_PROXIES = [
+  (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  (url) => `https://cors-anywhere.herokuapp.com/${url}`
+];
+
+/**
+ * Fetch a remote document with CORS handling
+ * @param {string} url - The URL to fetch
+ * @returns {Promise<object>} The fetched document
+ */
+async function fetchWithCorsRetry(url) {
+  // Check cache first
+  if (remoteContextCache.has(url)) {
+    return remoteContextCache.get(url);
+  }
+
+  // Try direct fetch first
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'application/ld+json, application/json, */*'
+      },
+      mode: 'cors'
+    });
+    
+    if (response.ok) {
+      const contentType = response.headers.get('content-type') || '';
+      let document;
+      
+      if (contentType.includes('json')) {
+        document = await response.json();
+      } else {
+        // Try to parse as JSON anyway
+        const text = await response.text();
+        document = JSON.parse(text);
+      }
+      
+      remoteContextCache.set(url, document);
+      return document;
+    }
+  } catch (directError) {
+    console.log(`Direct fetch failed for ${url}, trying CORS proxies...`);
+  }
+
+  // Try CORS proxies
+  for (const proxyFn of CORS_PROXIES) {
+    try {
+      const proxyUrl = proxyFn(url);
+      const response = await fetch(proxyUrl, {
+        headers: {
+          'Accept': 'application/ld+json, application/json, */*'
+        }
+      });
+      
+      if (response.ok) {
+        const text = await response.text();
+        let document;
+        
+        try {
+          document = JSON.parse(text);
+        } catch (e) {
+          // Maybe it's wrapped, try to extract JSON
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            document = JSON.parse(jsonMatch[0]);
+          } else {
+            throw e;
+          }
+        }
+        
+        remoteContextCache.set(url, document);
+        console.log(`Successfully fetched ${url} via CORS proxy`);
+        return document;
+      }
+    } catch (proxyError) {
+      console.log(`CORS proxy failed for ${url}:`, proxyError.message);
+      continue;
+    }
+  }
+
+  throw new Error(`Failed to fetch context from ${url} - all methods failed (direct and CORS proxies)`);
+}
+
 /**
  * Custom document loader that handles common contexts and internal registry
  */
@@ -64,7 +152,7 @@ const customLoader = async (url) => {
     }
   }
 
-  // Common contexts cache
+  // Common contexts cache - frequently used contexts
   const contexts = {
     'https://schema.org': {
       '@context': {
@@ -86,9 +174,25 @@ const customLoader = async (url) => {
         'keywords': 'https://schema.org/keywords',
         'sameAs': { '@id': 'https://schema.org/sameAs', '@type': '@id' }
       }
+    },
+    'http://schema.org': {
+      '@context': {
+        '@vocab': 'https://schema.org/'
+      }
+    },
+    'https://schema.org/': {
+      '@context': {
+        '@vocab': 'https://schema.org/'
+      }
+    },
+    'http://schema.org/': {
+      '@context': {
+        '@vocab': 'https://schema.org/'
+      }
     }
   };
 
+  // Check common contexts cache
   if (contexts[url]) {
     return {
       contextUrl: null,
@@ -97,27 +201,18 @@ const customLoader = async (url) => {
     };
   }
 
-  // Try to fetch remote context
+  // Try to fetch remote context with CORS handling
   try {
-    const response = await fetch(url, {
-      headers: {
-        'Accept': 'application/ld+json, application/json'
-      }
-    });
-    const document = await response.json();
+    const document = await fetchWithCorsRetry(url);
     return {
       contextUrl: null,
       document: document,
       documentUrl: url
     };
   } catch (error) {
-    console.warn(`Failed to load context from ${url}:`, error);
-    // Return minimal context
-    return {
-      contextUrl: null,
-      document: { '@context': {} },
-      documentUrl: url
-    };
+    console.error(`Failed to load context from ${url}:`, error);
+    // Throw the error instead of returning empty context to make debugging easier
+    throw new Error(`Could not load remote context from ${url}: ${error.message}`);
   }
 };
 
@@ -348,6 +443,22 @@ export async function validate(doc) {
   }
 }
 
+/**
+ * Clear the remote context cache
+ * Useful when debugging or when contexts have been updated
+ */
+export function clearContextCache() {
+  remoteContextCache.clear();
+  console.log('Remote context cache cleared');
+}
+
+/**
+ * Get the size of the remote context cache
+ */
+export function getContextCacheSize() {
+  return remoteContextCache.size;
+}
+
 export default {
   expand,
   compact,
@@ -358,5 +469,7 @@ export default {
   parseNQuads,
   extractGraphData,
   validate,
-  registerContext
+  registerContext,
+  clearContextCache,
+  getContextCacheSize
 };
