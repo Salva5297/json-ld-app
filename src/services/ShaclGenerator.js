@@ -58,26 +58,38 @@ function extractPrefixes(context) {
     'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'
   };
   
+  // Handle array of contexts (merge all into one)
+  if (Array.isArray(context)) {
+    for (const ctx of context) {
+      const extracted = extractPrefixes(ctx);
+      Object.assign(prefixes, extracted);
+    }
+    return prefixes;
+  }
+  
   if (typeof context === 'string') {
     // Common context URLs
     if (context === 'https://schema.org' || context === 'http://schema.org') {
       prefixes['schema'] = 'https://schema.org/';
     }
-  } else if (typeof context === 'object') {
+  } else if (context !== null && typeof context === 'object') {
     for (const [key, value] of Object.entries(context)) {
       if (key.startsWith('@')) continue;
       
-      if (typeof value === 'string' && value.endsWith('/') || value.endsWith('#')) {
-        prefixes[key] = value;
-      } else if (typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'))) {
-        // Extract namespace from property IRI
-        const namespace = value.substring(0, value.lastIndexOf('/') + 1) || 
-                         value.substring(0, value.lastIndexOf('#') + 1);
-        if (namespace) {
-          // Try to infer prefix from namespace
-          const lastPart = namespace.replace(/[/#]$/, '').split('/').pop();
-          if (lastPart && !prefixes[lastPart]) {
-            prefixes[lastPart] = namespace;
+      // Ensure value is a string before calling string methods
+      if (typeof value === 'string') {
+        if (value.endsWith('/') || value.endsWith('#')) {
+          prefixes[key] = value;
+        } else if (value.startsWith('http://') || value.startsWith('https://')) {
+          // Extract namespace from property IRI
+          const namespace = value.substring(0, value.lastIndexOf('/') + 1) || 
+                           value.substring(0, value.lastIndexOf('#') + 1);
+          if (namespace) {
+            // Try to infer prefix from namespace
+            const lastPart = namespace.replace(/[/#]$/, '').split('/').pop();
+            if (lastPart && !prefixes[lastPart]) {
+              prefixes[lastPart] = namespace;
+            }
           }
         }
       }
@@ -176,6 +188,48 @@ async function analyzeDocument(doc) {
 }
 
 /**
+ * Generate a valid SHACL shape name from a class name
+ * @param {string} targetClass - The target class (prefixed or full URI)
+ * @param {object} prefixes - Available prefixes
+ * @returns {string} A valid Turtle shape name
+ */
+function generateShapeName(targetClass, prefixes) {
+  if (!targetClass) {
+    return 'ex:GeneratedShape';
+  }
+  
+  // If it's a full URI wrapped in <>
+  if (targetClass.startsWith('<') && targetClass.endsWith('>')) {
+    const uri = targetClass.slice(1, -1);
+    // Extract local name from URI
+    let localName = uri.split('/').pop() || uri.split('#').pop() || 'Thing';
+    // Clean up the local name to be a valid identifier
+    localName = localName.replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!localName) localName = 'Thing';
+    return `ex:${localName}Shape`;
+  }
+  
+  // If it's a prefixed name (e.g., schema:Person)
+  if (targetClass.includes(':')) {
+    const [prefix, localName] = targetClass.split(':');
+    // Check if the prefix exists
+    if (prefixes[prefix]) {
+      // Clean up local name
+      const cleanName = localName.replace(/[^a-zA-Z0-9_-]/g, '');
+      return `${prefix}:${cleanName}Shape`;
+    } else {
+      // Use ex: prefix for unknown prefixes
+      const cleanName = localName.replace(/[^a-zA-Z0-9_-]/g, '');
+      return `ex:${cleanName}Shape`;
+    }
+  }
+  
+  // Plain name without prefix
+  const cleanName = targetClass.replace(/[^a-zA-Z0-9_-]/g, '');
+  return `ex:${cleanName || 'Generated'}Shape`;
+}
+
+/**
  * Generate SHACL shapes from a JSON-LD document
  * @param {object} jsonldDoc - The JSON-LD document to analyze
  * @returns {Promise<{success: boolean, data?: string, error?: string}>}
@@ -184,6 +238,12 @@ export async function generateFromJsonLd(jsonldDoc) {
   try {
     const context = jsonldDoc['@context'] || {};
     const prefixes = extractPrefixes(context);
+    
+    // Ensure we have an 'ex' prefix for generated shapes
+    if (!prefixes['ex']) {
+      prefixes['ex'] = 'https://example.org/shapes#';
+    }
+    
     const { properties, types } = await analyzeDocument(jsonldDoc);
     
     // Build Turtle output
@@ -207,8 +267,12 @@ export async function generateFromJsonLd(jsonldDoc) {
         targetClass = `schema:${typeName}`;
         if (!prefixes['schema']) {
           lines.unshift('@prefix schema: <https://schema.org/> .');
+          prefixes['schema'] = 'https://schema.org/';
         }
-      } else if (context['@vocab']) {
+      } else if (Array.isArray(context)) {
+        // For array contexts, try to find a suitable prefix or use ex:
+        targetClass = `ex:${typeName}`;
+      } else if (context && typeof context === 'object' && context['@vocab']) {
         const vocab = context['@vocab'];
         // Find or create prefix for vocab
         let vocabPrefix = null;
@@ -220,18 +284,20 @@ export async function generateFromJsonLd(jsonldDoc) {
         }
         if (!vocabPrefix) {
           vocabPrefix = 'ex';
-          lines.unshift(`@prefix ex: <${vocab}> .`);
+          if (!lines.some(l => l.includes('@prefix ex:'))) {
+            lines.unshift(`@prefix ex: <${vocab}> .`);
+          }
+          prefixes['ex'] = vocab;
         }
         targetClass = `${vocabPrefix}:${typeName}`;
       } else {
-        targetClass = `<${typeName}>`;
+        // Use ex: prefix for plain type names
+        targetClass = `ex:${typeName}`;
       }
     }
     
-    // Generate shape
-    const shapeName = targetClass ? 
-      `${targetClass.replace(':', '')}Shape` : 
-      'GeneratedShape';
+    // Generate a valid shape name
+    const shapeName = generateShapeName(targetClass, prefixes);
     
     lines.push(`# Generated SHACL Shape`);
     lines.push(`# Based on analyzed JSON-LD document structure`);
@@ -252,28 +318,41 @@ export async function generateFromJsonLd(jsonldDoc) {
       
       lines.push(`    sh:property [`);
       
-      // Determine path
+      // Determine path - ensure valid Turtle syntax
       let shapePath = path;
       if (path.startsWith('http://') || path.startsWith('https://')) {
         shapePath = shortenUri(path, prefixes);
-        if (shapePath.startsWith('<')) {
-          lines.push(`        sh:path ${shapePath} ;`);
-        } else {
-          lines.push(`        sh:path ${shapePath} ;`);
-        }
+        lines.push(`        sh:path ${shapePath} ;`);
       } else if (path.includes(':')) {
+        // Already prefixed
         lines.push(`        sh:path ${path} ;`);
       } else {
-        // Try to resolve from context
-        const ctxValue = typeof context === 'object' ? context[path] : null;
+        // Try to resolve from context (handle both object and array contexts)
+        let ctxValue = null;
+        if (Array.isArray(context)) {
+          // Search through array contexts for the property
+          for (const ctx of context) {
+            if (ctx && typeof ctx === 'object' && ctx[path]) {
+              ctxValue = ctx[path];
+              break;
+            }
+          }
+        } else if (context && typeof context === 'object' && !Array.isArray(context)) {
+          ctxValue = context[path];
+        }
+        
         if (ctxValue && typeof ctxValue === 'string') {
           const shortPath = shortenUri(ctxValue, prefixes);
           lines.push(`        sh:path ${shortPath} ;`);
         } else if (targetClass && targetClass.includes(':')) {
           const prefix = targetClass.split(':')[0];
-          lines.push(`        sh:path ${prefix}:${path} ;`);
+          // Ensure the property name is a valid local name
+          const cleanPath = path.replace(/[^a-zA-Z0-9_-]/g, '') || 'property';
+          lines.push(`        sh:path ${prefix}:${cleanPath} ;`);
         } else {
-          lines.push(`        sh:path <${path}> ;`);
+          // Use ex: prefix for unknown properties
+          const cleanPath = path.replace(/[^a-zA-Z0-9_-]/g, '') || 'property';
+          lines.push(`        sh:path ex:${cleanPath} ;`);
         }
       }
       

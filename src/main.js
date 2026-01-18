@@ -41,6 +41,7 @@ const state = {
   theme: 'dark',
   isProcessing: false,
   lastError: null,
+  lastValidationReport: null,
   contextCollapsed: false,
   contextGenerationMode: 'uri',
   customOntologyMode: 'uri'
@@ -1310,6 +1311,42 @@ async function validateWithShacl() {
   setStatus('ready', 'Ready');
 }
 
+/**
+ * Find approximate line number in JSON-LD for a given path or value
+ */
+function findLineInJsonLd(jsonldContent, searchPath, searchValue = null) {
+  const lines = jsonldContent.split('\n');
+  
+  // Extract the property name from path (e.g., "https://schema.org/email" -> "email")
+  let propName = searchPath;
+  if (searchPath.includes('/')) {
+    propName = searchPath.split('/').pop();
+  }
+  if (searchPath.includes('#')) {
+    propName = searchPath.split('#').pop();
+  }
+  
+  // Search for the property in the JSON-LD
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // Check if this line contains the property name
+    if (line.includes(`"${propName}"`) || line.includes(`"${searchPath}"`)) {
+      // If we have a value to match, check if it's on this or nearby lines
+      if (searchValue) {
+        // Check this line and a few lines after for the value
+        for (let j = i; j < Math.min(i + 5, lines.length); j++) {
+          if (lines[j].includes(searchValue)) {
+            return j + 1; // 1-indexed
+          }
+        }
+      }
+      return i + 1; // 1-indexed
+    }
+  }
+  
+  return null;
+}
+
 function renderValidationReport(report) {
   const reportEl = document.getElementById('validation-report');
   const contentEl = document.getElementById('report-content');
@@ -1317,6 +1354,9 @@ function renderValidationReport(report) {
   if (!reportEl || !contentEl) return;
   
   reportEl.classList.remove('hidden');
+  
+  // Get JSON-LD content for line number lookup
+  const jsonldContent = getJsonLdContent();
   
   let html = '';
   
@@ -1341,20 +1381,65 @@ function renderValidationReport(report) {
         </svg>
         ${report.results.length} violation(s) found
       </div>
+      <div class="violations-list">
     `;
     
-    for (const result of report.results) {
+    for (let i = 0; i < report.results.length; i++) {
+      const result = report.results[i];
+      const lineNumber = findLineInJsonLd(jsonldContent, result.path, result.value);
+      const lineInfo = lineNumber ? `Line ${lineNumber}` : '';
+      
+      // Extract short property name for display
+      let shortPath = result.path;
+      if (result.path.includes('/')) {
+        shortPath = result.path.split('/').pop();
+      }
+      if (result.path.includes('#')) {
+        shortPath = result.path.split('#').pop();
+      }
+      
+      // Extract short focus node for display
+      let shortFocusNode = result.focusNode || '';
+      if (shortFocusNode.includes('/')) {
+        shortFocusNode = shortFocusNode.split('/').pop();
+      }
+      
       html += `
-        <div class="violation-item">
-          <div class="violation-path">${escapeHtml(result.path)}</div>
-          <div class="violation-message">${escapeHtml(result.message)}</div>
-          ${result.value ? `<div class="violation-message">Value: ${escapeHtml(result.value)}</div>` : ''}
-          <span class="violation-severity ${result.severity.toLowerCase()}">${result.severity}</span>
+        <div class="violation-item" data-index="${i}">
+          <div class="violation-header">
+            <span class="violation-number">#${i + 1}</span>
+            ${lineInfo ? `<span class="violation-line">${lineInfo}</span>` : ''}
+            <span class="violation-severity ${result.severity.toLowerCase()}">${result.severity}</span>
+          </div>
+          <div class="violation-details">
+            <div class="violation-path">
+              <span class="violation-label">Property:</span>
+              <code title="${escapeHtml(result.path)}">${escapeHtml(shortPath)}</code>
+            </div>
+            ${result.focusNode ? `
+              <div class="violation-focus">
+                <span class="violation-label">Focus Node:</span>
+                <code title="${escapeHtml(result.focusNode)}">${escapeHtml(shortFocusNode)}</code>
+              </div>
+            ` : ''}
+            <div class="violation-message">
+              <span class="violation-label">Message:</span>
+              <span>${escapeHtml(result.message)}</span>
+            </div>
+            ${result.value ? `
+              <div class="violation-value">
+                <span class="violation-label">Value:</span>
+                <code>${escapeHtml(result.value)}</code>
+              </div>
+            ` : ''}
+          </div>
         </div>
       `;
     }
     
-    showToast(`Validation failed: ${report.results.length} violation(s)`, 'error');
+    html += '</div>';
+    
+    showToast(`Validation failed: ${report.results.length} violation(s) found. See details below.`, 'error');
   }
   
   contentEl.innerHTML = html;
@@ -1459,13 +1544,30 @@ async function shareDocument() {
 
 function downloadValidationReport() {
   if (!state.lastValidationReport) {
-    showToast('No validation report available', 'warning');
+    showToast('No validation report available. Run validation first.', 'warning');
     return;
   }
   
-  const reportJson = JSON.stringify(state.lastValidationReport, null, 2);
-  storage.downloadFile(reportJson, 'validation-report.json');
-  showToast('Report download started', 'success');
+  // Get JSON-LD content for line number lookup
+  const jsonldContent = getJsonLdContent();
+  
+  // Enrich the report with line numbers
+  const enrichedReport = {
+    ...state.lastValidationReport,
+    results: state.lastValidationReport.results.map((result, index) => {
+      const lineNumber = findLineInJsonLd(jsonldContent, result.path, result.value);
+      return {
+        ...result,
+        lineNumber: lineNumber || null,
+        index: index + 1
+      };
+    }),
+    generatedAt: new Date().toISOString()
+  };
+  
+  const reportJson = JSON.stringify(enrichedReport, null, 2);
+  storage.downloadFile(reportJson, 'shacl-validation-report.json');
+  showToast('Validation report downloaded', 'success');
 }
 
 // ============================================
