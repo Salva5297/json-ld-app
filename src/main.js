@@ -598,23 +598,25 @@ function initOntologySelector() {
   // In previous step we kept .ontology-header-controls in HTML. Let's inject there.
   
   const controls = document.querySelector('.ontology-header-controls');
-  if (controls && !controls.querySelector('.ontology-mode-toggle')) {
-      const toggleDiv = document.createElement('div');
-      toggleDiv.className = 'ontology-mode-toggle';
-      toggleDiv.innerHTML = `
-        <span class="mode-label" style="margin-right:8px; font-size:var(--text-xs); color:var(--color-text-secondary)">Output Format:</span>
-        <button class="ontology-mode-btn active" data-mode="uri">URI</button>
-        <button class="ontology-mode-btn" data-mode="prefixes">Prefixes</button>
+  if (controls && !controls.querySelector('.output-format-header')) {
+      const headerDiv = document.createElement('div');
+      headerDiv.className = 'output-format-header';
+      headerDiv.innerHTML = `
+        <h4>Output Format</h4>
+        <div class="ontology-mode-toggle">
+          <button class="ontology-mode-btn active" data-mode="uri">URI</button>
+          <button class="ontology-mode-btn" data-mode="prefixes">Prefixes</button>
+        </div>
       `;
       
-      toggleDiv.querySelectorAll('.ontology-mode-btn').forEach(btn => {
+      headerDiv.querySelectorAll('.ontology-mode-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-          toggleDiv.querySelectorAll('.ontology-mode-btn').forEach(b => b.classList.remove('active'));
+          headerDiv.querySelectorAll('.ontology-mode-btn').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
           state.contextGenerationMode = btn.dataset.mode;
         });
       });
-      controls.appendChild(toggleDiv);
+      controls.appendChild(headerDiv);
       state.contextGenerationMode = 'uri';
   }
   
