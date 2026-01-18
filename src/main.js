@@ -1632,12 +1632,116 @@ function showToast(message, type = 'info') {
 }
 
 function highlightJson(json) {
-  return json
-    .replace(/("(?:[^"\\]|\\.)*")\s*:/g, '<span class="json-key">$1</span>:')
-    .replace(/:\s*("(?:[^"\\]|\\.)*")/g, ': <span class="json-string">$1</span>')
-    .replace(/:\s*(\d+\.?\d*)/g, ': <span class="json-number">$1</span>')
-    .replace(/:\s*(true|false)/g, ': <span class="json-boolean">$1</span>')
-    .replace(/:\s*(null)/g, ': <span class="json-null">$1</span>');
+  // Tokenize the JSON to avoid matching colons inside strings
+  const tokens = [];
+  let i = 0;
+  
+  while (i < json.length) {
+    // Skip whitespace
+    if (/\s/.test(json[i])) {
+      let ws = '';
+      while (i < json.length && /\s/.test(json[i])) {
+        ws += json[i];
+        i++;
+      }
+      tokens.push({ type: 'ws', value: ws });
+      continue;
+    }
+    
+    // String
+    if (json[i] === '"') {
+      let str = '"';
+      i++;
+      while (i < json.length) {
+        if (json[i] === '\\' && i + 1 < json.length) {
+          str += json[i] + json[i + 1];
+          i += 2;
+        } else if (json[i] === '"') {
+          str += '"';
+          i++;
+          break;
+        } else {
+          str += json[i];
+          i++;
+        }
+      }
+      tokens.push({ type: 'string', value: str });
+      continue;
+    }
+    
+    // Number
+    if (/[-0-9]/.test(json[i])) {
+      let num = '';
+      while (i < json.length && /[-0-9.eE+]/.test(json[i])) {
+        num += json[i];
+        i++;
+      }
+      tokens.push({ type: 'number', value: num });
+      continue;
+    }
+    
+    // Boolean or null
+    if (json.slice(i, i + 4) === 'true') {
+      tokens.push({ type: 'boolean', value: 'true' });
+      i += 4;
+      continue;
+    }
+    if (json.slice(i, i + 5) === 'false') {
+      tokens.push({ type: 'boolean', value: 'false' });
+      i += 5;
+      continue;
+    }
+    if (json.slice(i, i + 4) === 'null') {
+      tokens.push({ type: 'null', value: 'null' });
+      i += 4;
+      continue;
+    }
+    
+    // Punctuation
+    if ('{}[],:'.includes(json[i])) {
+      tokens.push({ type: 'punct', value: json[i] });
+      i++;
+      continue;
+    }
+    
+    // Unknown character
+    tokens.push({ type: 'other', value: json[i] });
+    i++;
+  }
+  
+  // Now build highlighted output
+  let result = '';
+  for (let j = 0; j < tokens.length; j++) {
+    const token = tokens[j];
+    
+    if (token.type === 'string') {
+      // Check if this is a key (followed by optional whitespace and colon)
+      let isKey = false;
+      for (let k = j + 1; k < tokens.length; k++) {
+        if (tokens[k].type === 'ws') continue;
+        if (tokens[k].type === 'punct' && tokens[k].value === ':') {
+          isKey = true;
+        }
+        break;
+      }
+      
+      if (isKey) {
+        result += `<span class="json-key">${escapeHtml(token.value)}</span>`;
+      } else {
+        result += `<span class="json-string">${escapeHtml(token.value)}</span>`;
+      }
+    } else if (token.type === 'number') {
+      result += `<span class="json-number">${token.value}</span>`;
+    } else if (token.type === 'boolean') {
+      result += `<span class="json-boolean">${token.value}</span>`;
+    } else if (token.type === 'null') {
+      result += `<span class="json-null">${token.value}</span>`;
+    } else {
+      result += token.value;
+    }
+  }
+  
+  return result;
 }
 
 function escapeHtml(text) {
