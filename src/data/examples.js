@@ -430,6 +430,191 @@ ex:TaskShape a sh:NodeShape ;
         sh:in ("pending" "in-progress" "completed" "cancelled") ;
         sh:message "Status must be one of: pending, in-progress, completed, cancelled" ;
     ] .`
+  },
+  {
+    id: 'semantic-digital-twin',
+    name: 'Semantic Digital Twin (WoT + External Contexts)',
+    description: 'Complex example with multiple external contexts (W3C WoT, custom SDT vocabulary). Demonstrates Thing Description for Digital Twins with physical entities, virtual entities, data sources and connections.',
+    icon: 'cpu',
+    jsonld: {
+      "@context": [
+        "https://www.w3.org/2019/wot/td/v1",
+        "https://raw.githubusercontent.com/Salva5297/SemanticDT_TD/refs/heads/main/context/dt.td.context.jsonld",
+        "https://w3c.github.io/wot-discovery/context/discovery-core.jsonld",
+        {
+          "sdt": "urn:sdt:"
+        }
+      ],
+      "securityDefinitions": {
+        "nosec_sc": {
+          "scheme": "nosec"
+        }
+      },
+      "security": ["nosec_sc"],
+      "id": "urn:sdt:SDT/5a5957c2-d1ae-4d7f-8716-2b0425a69a6d",
+      "@type": "SDT",
+      "title": "Construction Information Resource Thing Description",
+      "description": "Construction Information Resource in project b3fe643d-f9f2-4e14-bf3c-95343d63c850",
+      "properties": {},
+      "actions": {},
+      "events": {},
+      "links": [],
+      "pe": [
+        {
+          "@id": "urn:sdt:SDT/5a5957c2-d1ae-4d7f-8716-2b0425a69a6d/pe/1",
+          "@type": "Physical Entity",
+          "title": "Physical Entity 1",
+          "description": "Physical Entity 1 description.",
+          "components": [
+            {
+              "@id": "sdt:a5ab8de2-96d1-4ebc-8216-f777f5c1aa83",
+              "@type": "Sensor",
+              "title": "Name of the Sensor Thing Description.",
+              "description": "Description of the Sensor Thing Description.",
+              "href": "https://example.org/td/a5ab8de2-96d1-4ebc-8216-f777f5c1aa83"
+            },
+            {
+              "@id": "sdt:6388d1bc-06db-41cc-af64-298cc9728c27",
+              "@type": "Actuator",
+              "title": "Name of the Actuator Thing Description.",
+              "description": "Description of the Actuator Thing Description.",
+              "href": "https://example.org/td/6388d1bc-06db-41cc-af64-298cc9728c27"
+            }
+          ]
+        }
+      ],
+      "ve": [
+        {
+          "@id": "urn:sdt:5a5957c2-d1ae-4d7f-8716-2b0425a69a6d/ve/1",
+          "@type": "Virtual Entity",
+          "title": "Virtual Entity 1",
+          "description": "Virtual Entity 1 description.",
+          "models": [
+            {
+              "@id": "sdt:5a5957c2-d1ae-4d7f-8716-2b0425a69a6d:onto",
+              "@type": "Ontology_Model",
+              "title": "Ontology",
+              "description": "Description of the Ontology",
+              "aggregates": ["https://example.org/def/onto#"],
+              "formats": [
+                {
+                  "@id": "sdt:5a5957c2-d1ae-4d7f-8716-2b0425a69a6d:format:ttl",
+                  "@type": "Format",
+                  "title": "Turtle",
+                  "description": "Contains Ontology X Extension in Turtle Format.",
+                  "href": "https://example.org/onto.ttl",
+                  "extension": "ttl"
+                },
+                {
+                  "@id": "sdt:5a5957c2-d1ae-4d7f-8716-2b0425a69a6d:format:json-ld",
+                  "@type": "Format",
+                  "title": "JSON-LD",
+                  "description": "Contains Ontology X Extension in JSON-LD Format.",
+                  "href": "https://example.org/onto.json",
+                  "extension": "json-ld"
+                }
+              ]
+            },
+            {
+              "@id": "sdt:5a5957c2-d1ae-4d7f-8716-2b0425a69a6d:shacl",
+              "@type": "SHACL_Shapes_Model",
+              "title": "SHACL Shapes",
+              "description": "SHACL Shapes used to validate the Knowledge Graph information of the DT",
+              "aggregates": ["https://example.org/shapes.ttl"],
+              "formats": [
+                {
+                  "@id": "sdt:5a5957c2-d1ae-4d7f-8716-2b0425a69a6d:shacl:ttl",
+                  "@type": "Format",
+                  "title": "Turtle",
+                  "description": "Contains SHACL Shapes Extension in Turtle Format.",
+                  "href": "https://example.org/shapes.ttl",
+                  "extension": "ttl"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "dd": [
+        {
+          "@id": "urn:sdt:SDT/5a5957c2-d1ae-4d7f-8716-2b0425a69a6d/dd/1",
+          "@type": "Digital Twin Data",
+          "title": "Digital Twin Data 1",
+          "description": "Digital Twin Data 1 description.",
+          "data": [
+            {
+              "@id": "sdt:5a5957c2-d1ae-4d7f-8716-2b0425a69a6d:triplestore",
+              "@type": "Triplestore",
+              "title": "Ontotext GraphDB Triplestore",
+              "description": "Ontotext GraphDB Triplestore used to store knowledge graphs.",
+              "href": "https://triplestore.example.org/sparql",
+              "default-graph": "https://triplestore.example.org/statements/default-graph",
+              "extension": "rdf",
+              "internal": "true"
+            },
+            {
+              "@id": "sdt:5a5957c2-d1ae-4d7f-8716-2b0425a69a6d:ifc_file:12345",
+              "@type": "File",
+              "title": "IFC File 1234",
+              "description": "IFC File with identifier '1234', that contains the construction information of SDT1.",
+              "href": "https://dtp.example.org/files/building.ifc",
+              "extension": "ifc",
+              "internal": "false"
+            }
+          ]
+        }
+      ],
+      "cn": [
+        {
+          "@id": "urn:sdt:SDT/5a5957c2-d1ae-4d7f-8716-2b0425a69a6d/cn/1",
+          "@type": "Digital Twin Connection",
+          "title": "Digital Twin Connection 1",
+          "description": "Digital Twin Connection 1 description.",
+          "connections": [
+            {
+              "@id": "sdt:5a5957c2-d1ae-4d7f-8716-2b0425a69a6d:service:1",
+              "@type": "Digital_Twin_Service",
+              "title": "Service 1",
+              "description": "Service 1 of the SDT",
+              "href": "https://service1.example.org/execute_job",
+              "function": "client",
+              "internal": "true"
+            }
+          ],
+          "sdt_connections": [
+            {
+              "@id": "sdt:f5f94ac4-d2d0-48e0-a7fb-c9ceeea1a31d",
+              "@type": "SDT",
+              "title": "Semantic Digital Twin f5f94ac4-d2d0-48e0-a7fb-c9ceeea1a31d",
+              "description": "Connected Semantic Digital Twin",
+              "href": "https://example.org/td/f5f94ac4-d2d0-48e0-a7fb-c9ceeea1a31d"
+            }
+          ]
+        }
+      ],
+      "registration": {
+        "created": "2023-12-05T22:15:54.213Z",
+        "modified": "2023-12-05T22:15:54.213Z"
+      }
+    },
+    shacl: `@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix td: <https://www.w3.org/2019/wot/td#> .
+@prefix sdt: <urn:sdt:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+sdt:SDTShape a sh:NodeShape ;
+    sh:targetClass sdt:SDT ;
+    sh:property [
+        sh:path td:title ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "SDT must have a title" ;
+    ] ;
+    sh:property [
+        sh:path td:hasSecurityConfiguration ;
+        sh:minCount 1 ;
+        sh:message "SDT must have security configuration" ;
+    ] .`
   }
 ];
 

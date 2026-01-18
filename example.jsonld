@@ -2,8 +2,10 @@
    "@context":[
       "https://www.w3.org/2019/wot/td/v1",
       "https://raw.githubusercontent.com/Salva5297/SemanticDT_TD/refs/heads/main/context/dt.td.context.jsonld",
-      "https://w3c.github.io/wot-discovery/context/discovery-core.jsonld"
-      
+      "https://w3c.github.io/wot-discovery/context/discovery-core.jsonld",
+      {
+         "sdt": "urn:sdt:"
+      }
    ],
    "securityDefinitions":{
       "nosec_sc":{
@@ -13,7 +15,7 @@
    "security":[
       "nosec_sc"
    ],
-   "id":"data:SDT/5a5957c2-d1ae-4d7f-8716-2b0425a69a6d",
+   "id":"urn:sdt:SDT/5a5957c2-d1ae-4d7f-8716-2b0425a69a6d",
    "@type":"SDT",
    "title":"construction Information Resource Thing Description",
    "description":"construction Information Resource in project b3fe643d-f9f2-4e14-bf3c-95343d63c850",
@@ -23,20 +25,20 @@
    "links":[],
    "pe" : [
       {
-         "@id" : "data:SDT/5a5957c2-d1ae-4d7f-8716-2b0425a69a6d/pe/1",
+         "@id" : "urn:sdt:SDT/5a5957c2-d1ae-4d7f-8716-2b0425a69a6d/pe/1",
          "@type" : "Physical Entity",
          "title" : "Physical Entity 1",
          "description" : "Physical Entity 1 description.",
          "components" : [
             {
-               "@id" : "a5ab8de2-96d1-4ebc-8216-f777f5c1aa83",
+               "@id" : "sdt:a5ab8de2-96d1-4ebc-8216-f777f5c1aa83",
                "@type" : "Sensor",
                "title" : "Name of the Sensor Thing Description.",
                "description" : "Description of the Sensor Thing Description.",
                "href" : "https://.../td/a5ab8de2-96d1-4ebc-8216-f777f5c1aa83"
             },
             {
-               "@id" : "6388d1bc-06db-41cc-af64-298cc9728c27",
+               "@id" : "sdt:6388d1bc-06db-41cc-af64-298cc9728c27",
                "@type" : "Actuator",
                "title" : "Name of the Actuator Thing Description.",
                "description" : "Description of the Actuator Thing Description.",
@@ -47,7 +49,7 @@
    ],
    "ve" : [
       {
-         "@id" : "data:/5a5957c2-d1ae-4d7f-8716-2b0425a69a6d/ve/1",
+         "@id" : "urn:sdt:5a5957c2-d1ae-4d7f-8716-2b0425a69a6d/ve/1",
          "@type" : "Virtual Entity",
          "title" : "Virtual Entity 1",
          "description" : "Virtual Entity 1 description.",
@@ -107,7 +109,7 @@
    ],
    "dd" : [
       {
-         "@id" : "data:SDT/5a5957c2-d1ae-4d7f-8716-2b0425a69a6d/dd/1",
+         "@id" : "urn:sdt:SDT/5a5957c2-d1ae-4d7f-8716-2b0425a69a6d/dd/1",
          "@type" : "Digital Twin Data",
          "title" : "Digital Twin Data 1",
          "description" : "Digital Twin Data 1 description.",
@@ -136,7 +138,7 @@
    ],
    "cn" : [
       {
-         "@id" : "data:SDT/5a5957c2-d1ae-4d7f-8716-2b0425a69a6d/cn/1",
+         "@id" : "urn:sdt:SDT/5a5957c2-d1ae-4d7f-8716-2b0425a69a6d/cn/1",
          "@type" : "Digital Twin Connection",
          "title" : "Digital Twin Connection 1",
          "description" : "Digital Twin Connection 1 description.",
@@ -162,7 +164,7 @@
          ],
          "sdt_connections" : [
             {
-               "@id" : "f5f94ac4-d2d0-48e0-a7fb-c9ceeea1a31d",
+               "@id" : "sdt:f5f94ac4-d2d0-48e0-a7fb-c9ceeea1a31d",
                "@type" : "SDT",
                "title" : "Semantic Digital Twin f5f94ac4-d2d0-48e0-a7fb-c9ceeea1a31d",
                "description" : "Semantic Digital Twin f5f94ac4-d2d0-48e0-a7fb-c9ceeea1a31d that makes function X",

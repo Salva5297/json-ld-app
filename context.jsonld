@@ -1,0 +1,169 @@
+{
+    "dt" : "https://dt.iot.linkeddata.es/def/digital_twin#",
+    "rdf" : "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "owl" : "http://www.w3.org/2002/07/owl#",
+    "xsd" : "http://www.w3.org/2001/XMLSchema#",
+    "dcterms" : "http://purl.org/dc/terms/",
+    "saref" : "https://w3id.org/saref#",
+    "hctl" : "https://www.w3.org/2019/wot/hypermedia#",
+    "td" : "https://www.w3.org/2019/wot/td#",
+    "rdfs" : "http://www.w3.org/2000/01/rdf-schema#",
+    "dcat" : "http://www.w3.org/ns/dcat#",
+    "pe" : {
+        "@id" : "dt:hasPhysicalEntities",
+        "@type" : "@id",
+        "@container" : "@list"
+    },
+    "PhysicalEntity" : {
+        "@id" : "dt:PhysicalEntity",
+        "@type" : "@id"
+    },
+    "Component" : {
+        "@id" : "dt:Component",
+        "@type" : "@id"
+    },
+    "MainComponent" : {
+        "@id" : "dt:MainComponent",
+        "@type" : "@id"
+    },
+    "components" : {
+        "@id" : "dt:hasComponents",
+        "@type" : "@id",
+        "@container" : "@list"
+    },
+    "title" : {
+        "@id" : "td:title",
+        "@type" : "xsd:string"
+    },
+    "description" : {
+        "@id" : "td:description",
+        "@type" : "xsd:string"
+    },
+    "Sensor" : {
+        "@id" : "saref:Sensor",
+        "@type" : "@id"
+    },
+    "Actuator" : {
+        "@id" : "saref:Actuator",
+        "@type" : "@id"
+    },
+    "ve" : {
+        "@id" : "dt:hasVirtualEntities",
+        "@type" : "@id"
+    },
+    "VirtualEntity" : {
+        "@id" : "dt:VirtualEntity",
+        "@type" : "@id"
+    },
+    "Model" : {
+        "@id" : "dt:Model",
+        "@type" : "@id"
+    },
+    "Ontology_Model" : {
+        "@id" : "dt:OntologyModel",
+        "@type" : "@id"
+    },
+    "SHACL_Shape_Model" : {
+        "@id" : "dt:SHACLModel",
+        "@type" : "@id"
+    },
+    "Mapping_Model" : {
+        "@id" : "dt:MappingModel",
+        "@type" : "@id"
+    },
+    "Format" : {
+        "@id" : "dt:Format",
+        "@type" : "@id"
+    },
+    "href" : {
+        "@id" : "hctl:hasTarget",
+        "@type" : "xsd:anyURI"
+    },
+    "models" : {
+        "@id" : "dt:hasModels",
+        "@type" : "@id",
+        "@container" : "@list"
+    },
+    "aggregates" : {
+        "@id" : "dt:aggregates",
+        "@type" : "@id",
+        "@container" : "@list"
+    },
+    "formats" : {
+        "@id" : "dt:hasFormats",
+        "@type" : "@id",
+        "@container" : "@list"
+    },
+    "extension" : {
+        "@id" : "dt:hasExtension",
+        "@type" : "@id"
+    },
+    "dd" : {
+        "@id" : "dt:DigitalTwinData",
+        "@type" : "@id"
+    },
+    "Digital_Twin_Data" : {
+        "@id" : "dt:Digital_Twin_Data",
+        "@type" : "@id"
+    },
+    "Triplestore" : {
+        "@id" : "dt:Triplestore",
+        "@type" : "@id"
+    },
+    "FileStorage" : {
+        "@id" : "dt:FileStorage",
+        "@type" : "@id"
+    },
+    "File" : {
+        "@id" : "dt:File",
+        "@type" : "@id"
+    },
+    "data" : {
+        "@id" : "dt:hasData",
+        "@type" : "@id",
+        "@container" : "@list"
+    },
+    "default-graph" : {
+        "@id" : "dt:hasDefaultGraph",
+        "@type" : "xsd:anyURI"
+    },
+    "internal" : {
+        "@id" : "dt:isInternal",
+        "@type" : "xsd:boolean"
+    },
+
+    "cn" : {
+        "@id" : "dt:hasDigitalTwinConnections",
+        "@type" : "@id"
+    },
+    "Digital_Twin_Connection" : {
+        "@id" : "dt:DigitalTwinConnection",
+        "@type" : "@id"
+    },
+    "Digital_Twin_Service" : {
+        "@id" : "dt:DigitalTwinService",
+        "@type" : "@id"
+    },
+    "SDT" : {
+        "@id" : "dt:SemanticDigitalTwin",
+        "@type" : "@id"
+    },
+    "Semantic_Digital_Twin_Instance" : {
+        "@id" : "dt:SemanticDigitalTwinInstance",
+        "@type" : "@id"
+    },
+    "Semantic_Digital_Twin_Aggregate" : {
+        "@id" : "dt:SemanticDigitalTwinAggregate",
+        "@type" : "@id"
+    },
+    "connections" : {
+        "@id" : "dt:hasConnections",
+        "@type" : "@id",
+        "@container" : "@list"
+    },
+    "provider" : {
+        "@id" : "dt:isProvider",
+        "@type" : "xsd:boolean"
+    }
+
+}
