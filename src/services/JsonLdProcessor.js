@@ -310,11 +310,21 @@ export async function flatten(doc, context = null) {
 /**
  * Frame a JSON-LD document
  * Reshapes the document according to a frame
+ * Returns expanded URIs (not compacted with context)
  */
 export async function frame(doc, frameDoc) {
   try {
+    // First, frame with the provided frame document
     const framed = await jsonld.frame(doc, frameDoc);
-    return { success: true, data: framed };
+    
+    // Then expand to get full URIs (remove context compaction)
+    // This gives us the expanded form with @graph structure
+    const expanded = await jsonld.expand(framed);
+    
+    // Flatten to get proper @graph structure with @id on all nodes
+    const flattened = await jsonld.flatten(expanded);
+    
+    return { success: true, data: flattened };
   } catch (error) {
     return { success: false, error: error.message };
   }
