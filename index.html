@@ -153,8 +153,13 @@
 
         <!-- Ontology Selector -->
         <div class="ontology-section">
-          <div class="ontology-header">
-            <h3>Generate Context from Ontologies</h3>
+          <div class="panel-header collapsible" id="ontology-header-toggle">
+            <h3>
+              <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+              Generate Context from Ontologies
+            </h3>
             <button id="generate-context-btn" class="primary-btn">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polygon points="13,2 3,14 12,14 11,22 21,10 12,10" />
@@ -162,32 +167,48 @@
               Generate
             </button>
           </div>
-          <div class="ontology-grid" id="ontology-grid">
-            <!-- Ontology checkboxes will be inserted here -->
-          </div>
+          
+          <div id="ontology-wrapper" class="ontology-wrapper">
+            <div class="ontology-content-padding">
+              <div class="ontology-header-controls">
+                <!-- Toggle buttons injected by JS will go here or we can pre-add them -->
+              </div>
+              
+              <div class="ontology-grid" id="ontology-grid">
+                <!-- Ontology checkboxes will be inserted here -->
+              </div>
 
-          <!-- Custom Ontology Input -->
-          <div class="custom-ontology-section">
-            <h4>Add Custom Ontology</h4>
-            <div class="custom-ontology-form">
-              <div class="input-group">
-                <label for="custom-prefix">Prefix</label>
-                <input type="text" id="custom-prefix" placeholder="ex" maxlength="20">
+              <!-- Custom Ontology Input -->
+              <div class="custom-ontology-section">
+                <div class="custom-ontology-header">
+                  <h4>Add Custom Ontology</h4>
+                  <div class="ontology-mode-toggle" id="custom-ontology-mode-toggle">
+                    <button class="ontology-mode-btn active" data-mode="uri">URI</button>
+                    <button class="ontology-mode-btn" data-mode="prefixes">Prefixes</button>
+                  </div>
+                </div>
+                
+                <div class="custom-ontology-form">
+                  <div class="input-group" id="custom-prefix-group" style="display: none;">
+                    <label for="custom-prefix">Prefix</label>
+                    <input type="text" id="custom-prefix" placeholder="ex" maxlength="20">
+                  </div>
+                  <div class="input-group">
+                    <label for="custom-namespace" id="custom-namespace-label">Context URI</label>
+                    <input type="text" id="custom-namespace" placeholder="https://example.org/context.jsonld">
+                  </div>
+                  <button id="add-custom-ontology-btn" class="secondary-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    Add
+                  </button>
+                </div>
+                <div id="custom-ontologies-list" class="custom-ontologies-list">
+                  <!-- Custom ontologies will be added here -->
+                </div>
               </div>
-              <div class="input-group">
-                <label for="custom-namespace">Namespace URL</label>
-                <input type="text" id="custom-namespace" placeholder="https://example.org/ns#">
-              </div>
-              <button id="add-custom-ontology-btn" class="secondary-btn">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="12" y1="5" x2="12" y2="19" />
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-                Add
-              </button>
-            </div>
-            <div id="custom-ontologies-list" class="custom-ontologies-list">
-              <!-- Custom ontologies will be added here -->
             </div>
           </div>
         </div>

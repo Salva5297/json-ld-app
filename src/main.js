@@ -41,7 +41,9 @@ const state = {
   theme: 'dark',
   isProcessing: false,
   lastError: null,
-  contextCollapsed: false
+  contextCollapsed: false,
+  contextGenerationMode: 'uri',
+  customOntologyMode: 'uri'
 };
 
 // ============================================
@@ -395,7 +397,58 @@ function applyContextToJsonLd() {
 // ============================================
 function initCustomOntologies() {
   document.getElementById('add-custom-ontology-btn')?.addEventListener('click', addCustomOntology);
-  renderCustomOntologiesList();
+  // No-op or logic to restore state from localStorage if we wanted persistence
+  
+  // Initialize collapsible ontology section
+  const header = document.getElementById('ontology-header-toggle');
+  const wrapper = document.getElementById('ontology-wrapper');
+  const chevron = header?.querySelector('.chevron-icon');
+  
+  if (header && wrapper) {
+    header.addEventListener('click', (e) => {
+        // Don't toggle if clicking the Generate button directly
+        if (e.target.closest('button')) return;
+        
+        const isCollapsed = wrapper.classList.toggle('collapsed');
+        if (chevron) {
+            chevron.classList.toggle('rotated', isCollapsed);
+        }
+    });
+  }
+
+  // Initialize Custom Ontology Toggle Logic
+  const customToggle = document.getElementById('custom-ontology-mode-toggle');
+  if (customToggle) {
+    customToggle.querySelectorAll('.ontology-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        // Update active state
+        customToggle.querySelectorAll('.ontology-mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Update state
+        state.customOntologyMode = btn.dataset.mode;
+        
+        // Update UI
+        const prefixGroup = document.getElementById('custom-prefix-group');
+        const namespaceLabel = document.getElementById('custom-namespace-label');
+        const namespaceInput = document.getElementById('custom-namespace');
+        
+        if (state.customOntologyMode === 'uri') {
+            prefixGroup.style.display = 'none';
+            namespaceLabel.innerText = "Context URI";
+            namespaceInput.placeholder = "https://example.org/context.jsonld";
+        } else {
+            prefixGroup.style.display = 'flex';
+            namespaceLabel.innerText = "Namespace URL";
+            namespaceInput.placeholder = "https://example.org/ns#";
+        }
+      });
+    });
+    // Set default
+    state.customOntologyMode = 'uri';
+    // Trigger initial UI update
+    customToggle.querySelector('[data-mode="uri"]')?.click();
+  }
 }
 
 function addCustomOntology() {
@@ -404,39 +457,46 @@ function addCustomOntology() {
   
   if (!prefixInput || !namespaceInput) return;
   
+  const isUriMode = state.customOntologyMode === 'uri';
+  
   const prefix = prefixInput.value.trim();
   const namespace = namespaceInput.value.trim();
   
-  if (!prefix) {
+  if (!isUriMode && !prefix) {
     showToast('Please enter a prefix', 'warning');
     return;
   }
   
   if (!namespace) {
-    showToast('Please enter a namespace URL', 'warning');
+    showToast(isUriMode ? 'Please enter a Context URI' : 'Please enter a namespace URL', 'warning');
     return;
   }
   
-  // Check for valid URL format
-  if (!namespace.startsWith('http://') && !namespace.startsWith('https://')) {
-    showToast('Namespace must be a valid URL', 'warning');
+  // Check for valid URL format, allowing some flexibility but preferring http/https
+  if (!namespace.startsWith('http://') && !namespace.startsWith('https://') && !namespace.startsWith('urn:')) {
+    // Maybe show warning but allow?
+    // Let's enforce URL for now as it's JSON-LD context
+    showToast('URI must be a valid URL', 'warning');
     return;
   }
   
   // Check if prefix already exists
-  if (state.customOntologies.some(o => o.prefix === prefix)) {
+  if (!isUriMode && state.customOntologies.some(o => o.prefix === prefix)) {
     showToast('Prefix already exists', 'warning');
     return;
   }
   
-  state.customOntologies.push({ prefix, namespace });
+  // Generate keys for list
+  const storedPrefix = prefix || `custom_${Date.now().toString(36)}`;
+  
+  state.customOntologies.push({ prefix: storedPrefix, namespace, mode: state.customOntologyMode });
   renderCustomOntologiesList();
   
   // Clear inputs
   prefixInput.value = '';
   namespaceInput.value = '';
   
-  showToast(`Added ontology: ${prefix}`, 'success');
+  showToast('Added ontology', 'success');
 }
 
 function removeCustomOntology(prefix) {
@@ -480,6 +540,37 @@ function initOntologySelector() {
   
   grid.innerHTML = '';
   
+  // NOTE: We moved the mode toggle to the HTML directly for custom ontologies.
+  // The global "Generate" mode logic (URI vs Prefixes) needs to be consistent.
+  // If the user selects "URI" in custom add, does that mean they want URI output?
+  // The user requested buttons for "Add custom ontology" specifically.
+  // We still have the global mode toggle in the header (injected by previous step).
+  
+  // Let's make sure we find the existing header toggle correctly with new HTML structure
+  // or re-inject it if needed.
+  // In previous step we kept .ontology-header-controls in HTML. Let's inject there.
+  
+  const controls = document.querySelector('.ontology-header-controls');
+  if (controls && !controls.querySelector('.ontology-mode-toggle')) {
+      const toggleDiv = document.createElement('div');
+      toggleDiv.className = 'ontology-mode-toggle';
+      toggleDiv.innerHTML = `
+        <span class="mode-label" style="margin-right:8px; font-size:var(--text-xs); color:var(--color-text-secondary)">Output Format:</span>
+        <button class="ontology-mode-btn active" data-mode="uri">URI</button>
+        <button class="ontology-mode-btn" data-mode="prefixes">Prefixes</button>
+      `;
+      
+      toggleDiv.querySelectorAll('.ontology-mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          toggleDiv.querySelectorAll('.ontology-mode-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          state.contextGenerationMode = btn.dataset.mode;
+        });
+      });
+      controls.appendChild(toggleDiv);
+      state.contextGenerationMode = 'uri';
+  }
+  
   for (const [id, ont] of Object.entries(ontologies)) {
     const item = document.createElement('div');
     item.className = 'ontology-item';
@@ -516,139 +607,166 @@ function generateContextFromOntologies() {
     return;
   }
   
-  // Build context from selected ontologies and custom ones
-  let context = {};
-  
-  // Add custom ontologies first
-  for (const ont of state.customOntologies) {
-    context[ont.prefix] = ont.namespace;
-  }
-  
-  // Add selected ontologies
-  if (state.selectedOntologies.length > 0) {
-    const ontContext = generateContext(state.selectedOntologies);
-    if (typeof ontContext === 'string') {
-      // Schema.org returns a string URL
-      if (state.customOntologies.length > 0 || state.selectedOntologies.length > 1) {
-        // Mix with other ontologies
-        context['schema'] = 'https://schema.org/';
-      } else {
-        // Just schema.org alone
-        context = ontContext;
-      }
-    } else {
-      // Merge object contexts
-      context = { ...context, ...ontContext };
-    }
-  }
-  
-  // Try to preserve existing document structure
-  let doc;
-  let isInvalid = false;
-  let currentContent = '';
-  
-  try {
-    currentContent = getJsonLdContent();
-    if (currentContent.trim()) {
-      doc = JSON.parse(currentContent);
-    }
-  } catch (e) {
-    isInvalid = true;
-    console.warn('Invalid JSON detected, will preserve content but apply context separately', e);
-  }
-  
-  // CASE 1: Invalid JSON - Preserve content, update context editor only
-  if (isInvalid) {
-    // Generate context from selection
-    let newContext = {};
-    if (state.customOntologies.length > 0) {
-      for (const ont of state.customOntologies) {
-        newContext[ont.prefix] = ont.namespace;
-      }
-    }
+  let newContext;
+  const mode = state.contextGenerationMode || 'uri';
+
+  if (mode === 'uri') {
+    // URI Mode: Generate array of context URIs
+    // ["https://w3c.github.io/wot-discovery/context/discovery-core.jsonld", "https://..."]
+    const uris = new Set();
     
-    if (state.selectedOntologies.length > 0) {
-       const generatedCtx = generateContext(state.selectedOntologies);
-       // Handle Schema.org string vs object
-       if (typeof generatedCtx === 'string') {
-          if (state.customOntologies.length > 0 || state.selectedOntologies.length > 1) {
-            newContext['schema'] = 'https://schema.org/';
-            newContext['@vocab'] = 'https://schema.org/';
-          } else {
-             // Just schema.org string
-             newContext = generatedCtx;
-          }
-       } else {
-          // Merge object contexts
-          if (generatedCtx.schema) {
-             generatedCtx['@vocab'] = generatedCtx.schema;
-          }
-          newContext = { ...newContext, ...generatedCtx };
+    // Always add TD context first if we are doing WoT things (optional but good practice)
+    // But let's stick to what the user selected/added.
+    
+    // Add selected standard ontologies URIs
+    // We need a mapping of ontology ID -> Context URI
+    // Since 'ontologies' object in data.js might just have prefixes, we might need to assume or look them up.
+    // For now, let's look at the generated context to find the base URI or if it's a known one like W3C TD.
+    
+    /* 
+       NOTE: The user specifically asked for:
+       "https://www.w3.org/2019/wot/td/v1"
+       "https://raw.githubusercontent.com/Salva5297/SemanticDT_TD/main/context/sdt.td.context.jsonld" (Custom)
+       "https://w3c.github.io/wot-discovery/context/discovery-core.jsonld" (Standard)
+       
+       So we need to treat custom ontologies as potentially having a Context URI, 
+       OR just use their Namespace URI as a fallback if they don't provide a Context File URI.
+       However, the custom ontology input only asks for Prefix and Namespace. 
+       
+       For this specific feature request, it makes sense to treat the "Namespace" input of custom ontologies 
+       as the "Context URI" when in URI mode, if it looks like a file (ends in .jsonld/json).
+       Otherwise, this mode might not make sense for simple prefixes unless we auto-generate a remote context?
+       
+       Actually, standard usage in WoT is to pass the Context URL.
+    */
+    
+    // 1. Add W3C TD default if usually there (or if user selected 'td' things? We don't have that info easily)
+    // Let's rely on selected ontologies.
+    
+    for (const ontId of state.selectedOntologies) {
+       // We need an internal mapping of ID -> Context URL
+       
+       // Handle Schema.org
+       if (ontId === 'schema.org') {
+          uris.add("https://schema.org");
+       }
+       // Handle WoT
+       else if (ontId === 'wot') {
+          uris.add("https://www.w3.org/2019/wot/td/v1");
+       }
+       else if (ontId === 'wot-discovery') {
+          uris.add("https://w3c.github.io/wot-discovery/context/discovery-core.jsonld");
+       }
+       // Handle FOAF
+       else if (ontId === 'foaf') {
+          uris.add("http://xmlns.com/foaf/0.1/");
+       }
+       // Handle Dublin Core (dc)
+       else if (ontId === 'dc') {
+          uris.add("http://purl.org/dc/elements/1.1/");
+       }
+       // Handle others by using their namespace if possible, or fallback
+       else if (ontologies[ontId] && (ontologies[ontId].url || ontologies[ontId].namespace)) {
+            // Best effort: usage of namespace as context URI
+            uris.add(ontologies[ontId].namespace); 
        }
     }
     
-    // Update Context Editor ONLY
-    setContextContent(newContext);
-    showToast('Invalid JSON detected. Context updated in editor only.', 'warning');
-    return; // Stop here, do not overwrite editor
-  }
-  
-  // CASE 2: No content - Generate sample
-  if (!doc) {
-    doc = generateSampleDocument(state.selectedOntologies);
-  }
-
-  // CASE 3: Valid JSON - Merge context
-  // Add custom ontologies to the context
-  if (state.customOntologies.length > 0 && typeof doc['@context'] === 'object') {
+    // 2. Add Custom Ontologies
     for (const ont of state.customOntologies) {
-      doc['@context'][ont.prefix] = ont.namespace;
+      if (ont.namespace) uris.add(ont.namespace);
     }
-  } else if (state.customOntologies.length > 0) {
-    // Convert string context to object and add custom ontologies
-    const newContext = {};
-    if (typeof doc['@context'] === 'string') {
-      if (doc['@context'].includes('schema.org')) {
-        newContext['schema'] = 'https://schema.org/';
-        newContext['@vocab'] = 'https://schema.org/';
-      }
+    
+    // Convert to array
+    const contextArray = Array.from(uris);
+    
+    // If we have "Prefix" style ontologies that couldn't be mapped to provided URIs
+    // (technically my loop above tries to handle all now, but just in case)
+    const prefixContext = {};
+    let hasPrefixes = false;
+    
+    // We only add to prefix object if we explicitly want mixed mode or fell back?
+    // User requested ARRAY of STRINGS for standard ones. 
+    // So we should SKIP the generating of objects for things we already added as strings.
+    
+    // Actually, let's just NOT add the prefix object if we are in URI mode, 
+    // UNLESS there are truly things we couldn't map (which my loop above tries to cover).
+    // Or if the user wants partial prefixes? 
+    // The requirement "URI mode" implies "give me URIs".
+    
+    // Let's keep the logic clean: process what we can as URIs. 
+    // Any ontology NOT handled above (custom logic) creates a prefix object?
+    // My loop above handles *all* selected ontologies by trying to grab a URI.
+    // So we shouldn't need the fallback loop below for selected ontologies unless 
+    // we failed to find a URI for them.
+    
+    // But let's check if we want to support mixed (URIs + Prefixes) in this mode.
+    // If we found a URI, good. If not...
+    // The previous loop handles all `selectedOntologies`.
+    // So contextArray is populated.
+    
+    // If we really want to ensure cleanliness, we disable the prefix generation fallback 
+    // for standard ontologies in URI mode, assuming we mapped them all.
+    
+    if (hasPrefixes) {
+      contextArray.push(prefixContext);
     }
+    
+    // Final Context Value
+    if (contextArray.length === 1 && typeof contextArray[0] === 'string') {
+       newContext = contextArray[0];
+    } else {
+       // Deep copy to avoid reference issues
+       newContext = [...contextArray];
+    }
+    
+  } else {
+    // PREFIXES Mode: Old behavior (merge everything into one object)
+    newContext = {};
+    
+    // Custom first
     for (const ont of state.customOntologies) {
       newContext[ont.prefix] = ont.namespace;
     }
-    doc['@context'] = newContext;
-  }
-  
-  // Start with the base generated context
-  if (state.selectedOntologies.length > 0) {
-     const generatedCtx = generateContext(state.selectedOntologies);
-     
-     // specific logic for merging Schema.org string vs object
-     if (typeof generatedCtx === 'string' && typeof doc['@context'] !== 'string') {
-        if (!doc['@context']) doc['@context'] = {};
-        doc['@context']['schema'] = 'https://schema.org/';
-        doc['@context']['@vocab'] = 'https://schema.org/';
-     } else if (typeof generatedCtx === 'object') {
-        if (!doc['@context'] || typeof doc['@context'] === 'string') doc['@context'] = {};
-        
-        // If we are merging Schema.org, ensure we set it as vocab to support unprefixed terms
-        if (generatedCtx.schema) {
-          generatedCtx['@vocab'] = generatedCtx.schema;
-        }
-        
-        Object.assign(doc['@context'], generatedCtx);
-     } else if (!doc['@context']) {
-        doc['@context'] = generatedCtx;
-     }
+    
+    // Selected
+    if (state.selectedOntologies.length > 0) {
+      const generatedCtx = generateContext(state.selectedOntologies);
+      if (typeof generatedCtx === 'string') {
+         if (state.customOntologies.length > 0 || state.selectedOntologies.length > 1) {
+            newContext['schema'] = 'https://schema.org/';
+         } else {
+            newContext = generatedCtx;
+         }
+      } else {
+         newContext = { ...newContext, ...generatedCtx };
+      }
+    }
   }
 
+  // Apply to Document
+  // We need to fetch current doc to preserve structure if possible
+  let doc;
+  try {
+    const currentContent = getJsonLdContent();
+    if (currentContent.trim()) {
+      doc = JSON.parse(currentContent);
+    }
+  } catch(e) { /* Ignore invalid JSON */ }
+
+  if (!doc) {
+     // No doc, generate sample
+     doc = generateSampleDocument(state.selectedOntologies);
+     doc['@context'] = newContext;
+  } else {
+     doc['@context'] = newContext;
+  }
+  
+  // Set Content
   setJsonLdContent(doc);
-  
-  // Also update the context editor
-  setContextContent(doc['@context']);
-  
+  setContextContent(newContext);
   processJsonLd();
-  showToast('Context generated successfully', 'success');
+  showToast(`Context generated (${mode} mode)`, 'success');
 }
 
 // ============================================

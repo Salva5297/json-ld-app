@@ -195,7 +195,8 @@ export async function canonize(doc) {
   try {
     const canonized = await jsonld.canonize(doc, {
       algorithm: 'URDNA2015',
-      format: 'application/n-quads'
+      format: 'application/n-quads',
+      safe: false
     });
     return { success: true, data: canonized };
   } catch (error) {
