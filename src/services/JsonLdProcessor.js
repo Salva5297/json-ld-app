@@ -713,13 +713,45 @@ function jsonToYaml(value, indent) {
   }
   
   if (typeof value === 'string') {
-    // Check if string needs quoting
-    if (value.includes('\n') || value.includes(':') || value.includes('#') || 
-        value.includes('"') || value.includes("'") || value.startsWith('@') ||
-        value.startsWith(' ') || value.endsWith(' ') ||
-        /^[0-9]/.test(value) || ['true', 'false', 'null', 'yes', 'no'].includes(value.toLowerCase())) {
-      // Use double quotes and escape
-      return '"' + value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n') + '"';
+    // YAML requires quoting strings that contain special characters
+    // Always quote strings with colons to avoid YAML interpretation issues
+    const needsQuoting = 
+      value.includes(':') ||  // Colons can be interpreted as key-value separators
+      value.includes('#') ||  // Comments
+      value.includes('\n') || // Newlines
+      value.includes('"') ||  // Quotes
+      value.includes("'") ||  // Single quotes
+      value.includes('[') ||  // Array start
+      value.includes(']') ||  // Array end
+      value.includes('{') ||  // Object start
+      value.includes('}') ||  // Object end
+      value.includes(',') ||  // List separator
+      value.includes('&') ||  // Anchor
+      value.includes('*') ||  // Alias
+      value.includes('!') ||  // Tag
+      value.includes('|') ||  // Literal block
+      value.includes('>') ||  // Folded block
+      value.includes('%') ||  // Directive
+      value.includes('@') ||  // Reserved
+      value.includes('`') ||  // Reserved
+      value.startsWith(' ') || 
+      value.endsWith(' ') ||
+      value.startsWith('-') || // Could be list item
+      value.startsWith('?') || // Could be key indicator
+      /^[0-9]/.test(value) || 
+      ['true', 'false', 'null', 'yes', 'no', 'on', 'off', 'y', 'n'].includes(value.toLowerCase()) ||
+      value === '' ||
+      value.includes('  '); // Multiple spaces
+    
+    if (needsQuoting) {
+      // Use double quotes and escape special characters
+      const escaped = value
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"')
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '\\r')
+        .replace(/\t/g, '\\t');
+      return '"' + escaped + '"';
     }
     return value;
   }
