@@ -619,8 +619,7 @@ sdt:SDTShape a sh:NodeShape ;
 ];
 
 export const defaultFrame = {
-  "@context": "https://schema.org",
-  "@type": "Person"
+  "@context": {}
 };
 
 export default examples;

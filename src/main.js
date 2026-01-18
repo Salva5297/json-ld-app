@@ -266,43 +266,21 @@ function generateFrameFromDocument() {
   // Build frame from document
   const frame = {};
   
-  // Copy @context
+  // Copy @context - required for proper framing
   if (doc['@context']) {
     frame['@context'] = doc['@context'];
   }
   
-  // Copy @type
+  // Only add @type if it exists in the document
+  // An invalid or missing @type in the frame causes errors
   if (doc['@type']) {
     frame['@type'] = doc['@type'];
   }
   
-  // If no @type, try to find one in the document structure
-  if (!frame['@type']) {
-    // Look for @type in nested objects
-    const findType = (obj) => {
-      if (typeof obj !== 'object' || obj === null) return null;
-      if (obj['@type']) return obj['@type'];
-      for (const val of Object.values(obj)) {
-        if (Array.isArray(val)) {
-          for (const item of val) {
-            const type = findType(item);
-            if (type) return type;
-          }
-        } else {
-          const type = findType(val);
-          if (type) return type;
-        }
-      }
-      return null;
-    };
-    const foundType = findType(doc);
-    if (foundType) {
-      frame['@type'] = foundType;
-    }
-  }
-  
-  // Add @explicit to ensure only matching types are returned
-  frame['@explicit'] = true;
+  // Note: We don't search for @type in nested objects because
+  // that could cause framing to filter out the root object.
+  // For documents without @type, an empty frame (with just @context)
+  // will frame everything.
   
   setFrameContent(frame);
   showToast('Frame generated from document', 'success');
