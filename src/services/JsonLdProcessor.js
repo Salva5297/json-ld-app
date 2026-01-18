@@ -741,9 +741,10 @@ export async function toTurtle(doc) {
  */
 export async function toYamlLd(doc) {
   try {
-    // Convert JSON to YAML
-    const yaml = jsonToYaml(doc, 0);
-    return { success: true, data: yaml };
+    // Convert JSON to YAML using a proper recursive approach
+    const lines = [];
+    jsonToYamlLines(doc, 0, lines, false);
+    return { success: true, data: lines.join('\n') };
   } catch (error) {
     console.error('YAML-LD conversion error:', error);
     return { success: false, error: `YAML-LD conversion failed: ${error.message}` };
@@ -751,142 +752,210 @@ export async function toYamlLd(doc) {
 }
 
 /**
- * Convert a JSON value to YAML string
+ * Quote a YAML string if needed
  */
-function jsonToYaml(value, indent) {
+function yamlQuoteString(value) {
+  if (typeof value !== 'string') return String(value);
+  
+  const needsQuoting = 
+    value === '' ||
+    value.includes(':') ||
+    value.includes('#') ||
+    value.includes('\n') ||
+    value.includes('\r') ||
+    value.includes('\t') ||
+    value.includes('"') ||
+    value.includes("'") ||
+    value.includes('[') ||
+    value.includes(']') ||
+    value.includes('{') ||
+    value.includes('}') ||
+    value.includes(',') ||
+    value.includes('&') ||
+    value.includes('*') ||
+    value.includes('!') ||
+    value.includes('|') ||
+    value.includes('>') ||
+    value.includes('%') ||
+    value.includes('@') ||
+    value.includes('`') ||
+    value.startsWith(' ') ||
+    value.endsWith(' ') ||
+    value.startsWith('-') ||
+    value.startsWith('?') ||
+    /^[0-9]/.test(value) ||
+    ['true', 'false', 'null', 'yes', 'no', 'on', 'off', 'y', 'n', ''].includes(value.toLowerCase());
+  
+  if (needsQuoting) {
+    const escaped = value
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r')
+      .replace(/\t/g, '\\t');
+    return '"' + escaped + '"';
+  }
+  return value;
+}
+
+/**
+ * Quote a YAML key if needed
+ */
+function yamlQuoteKey(key) {
+  if (key.includes(':') || key.includes(' ') || key.startsWith('@') || key.startsWith('#')) {
+    return '"' + key.replace(/"/g, '\\"') + '"';
+  }
+  return key;
+}
+
+/**
+ * Convert a JSON value to YAML lines
+ * @param {any} value - The value to convert
+ * @param {number} indent - Current indentation level
+ * @param {string[]} lines - Array to push lines to
+ * @param {boolean} inlineFirst - Whether the first line should be inline (no indent)
+ */
+function jsonToYamlLines(value, indent, lines, inlineFirst) {
   const spaces = '  '.repeat(indent);
+  const prefix = inlineFirst ? '' : spaces;
   
   if (value === null) {
-    return 'null';
+    lines.push(prefix + 'null');
+    return;
   }
   
   if (value === undefined) {
-    return '';
+    lines.push(prefix + 'null');
+    return;
   }
   
   if (typeof value === 'boolean') {
-    return value ? 'true' : 'false';
+    lines.push(prefix + (value ? 'true' : 'false'));
+    return;
   }
   
   if (typeof value === 'number') {
-    return String(value);
+    lines.push(prefix + String(value));
+    return;
   }
   
   if (typeof value === 'string') {
-    // YAML requires quoting strings that contain special characters
-    // Always quote strings with colons to avoid YAML interpretation issues
-    const needsQuoting = 
-      value.includes(':') ||  // Colons can be interpreted as key-value separators
-      value.includes('#') ||  // Comments
-      value.includes('\n') || // Newlines
-      value.includes('"') ||  // Quotes
-      value.includes("'") ||  // Single quotes
-      value.includes('[') ||  // Array start
-      value.includes(']') ||  // Array end
-      value.includes('{') ||  // Object start
-      value.includes('}') ||  // Object end
-      value.includes(',') ||  // List separator
-      value.includes('&') ||  // Anchor
-      value.includes('*') ||  // Alias
-      value.includes('!') ||  // Tag
-      value.includes('|') ||  // Literal block
-      value.includes('>') ||  // Folded block
-      value.includes('%') ||  // Directive
-      value.includes('@') ||  // Reserved
-      value.includes('`') ||  // Reserved
-      value.startsWith(' ') || 
-      value.endsWith(' ') ||
-      value.startsWith('-') || // Could be list item
-      value.startsWith('?') || // Could be key indicator
-      /^[0-9]/.test(value) || 
-      ['true', 'false', 'null', 'yes', 'no', 'on', 'off', 'y', 'n'].includes(value.toLowerCase()) ||
-      value === '' ||
-      value.includes('  '); // Multiple spaces
-    
-    if (needsQuoting) {
-      // Use double quotes and escape special characters
-      const escaped = value
-        .replace(/\\/g, '\\\\')
-        .replace(/"/g, '\\"')
-        .replace(/\n/g, '\\n')
-        .replace(/\r/g, '\\r')
-        .replace(/\t/g, '\\t');
-      return '"' + escaped + '"';
-    }
-    return value;
+    lines.push(prefix + yamlQuoteString(value));
+    return;
   }
   
   if (Array.isArray(value)) {
     if (value.length === 0) {
-      return '[]';
+      lines.push(prefix + '[]');
+      return;
     }
     
-    // Check if all items are simple (not objects/arrays)
+    // Check if all items are simple primitives
     const allSimple = value.every(item => 
-      item === null || typeof item !== 'object'
+      item === null || (typeof item !== 'object')
     );
     
-    if (allSimple && value.length <= 5) {
+    if (allSimple && value.length <= 3) {
       // Inline array for short simple arrays
-      const items = value.map(item => jsonToYaml(item, 0));
-      return '[' + items.join(', ') + ']';
+      const items = value.map(item => {
+        if (item === null) return 'null';
+        if (typeof item === 'string') return yamlQuoteString(item);
+        return String(item);
+      });
+      lines.push(prefix + '[' + items.join(', ') + ']');
+      return;
     }
     
     // Multi-line array
-    let result = '';
     for (const item of value) {
       if (typeof item === 'object' && item !== null) {
-        const yaml = jsonToYaml(item, indent + 1);
-        const lines = yaml.split('\n');
-        result += '\n' + spaces + '- ' + lines[0];
-        for (let i = 1; i < lines.length; i++) {
-          result += '\n' + spaces + '  ' + lines[i];
+        // For objects/arrays, put the first property on the same line as the dash
+        if (Array.isArray(item)) {
+          lines.push(spaces + '-');
+          jsonToYamlLines(item, indent + 1, lines, false);
+        } else {
+          const keys = Object.keys(item);
+          if (keys.length === 0) {
+            lines.push(spaces + '- {}');
+          } else {
+            // First key-value on same line as dash
+            const firstKey = keys[0];
+            const firstVal = item[firstKey];
+            const keyStr = yamlQuoteKey(firstKey);
+            
+            if (firstVal === null || typeof firstVal !== 'object') {
+              const valStr = firstVal === null ? 'null' : 
+                typeof firstVal === 'string' ? yamlQuoteString(firstVal) : String(firstVal);
+              lines.push(spaces + '- ' + keyStr + ': ' + valStr);
+            } else if (Array.isArray(firstVal) && firstVal.length === 0) {
+              lines.push(spaces + '- ' + keyStr + ': []');
+            } else if (typeof firstVal === 'object' && Object.keys(firstVal).length === 0) {
+              lines.push(spaces + '- ' + keyStr + ': {}');
+            } else {
+              lines.push(spaces + '- ' + keyStr + ':');
+              jsonToYamlLines(firstVal, indent + 2, lines, false);
+            }
+            
+            // Rest of keys with extra indent
+            for (let i = 1; i < keys.length; i++) {
+              const key = keys[i];
+              const val = item[key];
+              const kStr = yamlQuoteKey(key);
+              
+              if (val === null || typeof val !== 'object') {
+                const vStr = val === null ? 'null' : 
+                  typeof val === 'string' ? yamlQuoteString(val) : String(val);
+                lines.push(spaces + '  ' + kStr + ': ' + vStr);
+              } else if (Array.isArray(val) && val.length === 0) {
+                lines.push(spaces + '  ' + kStr + ': []');
+              } else if (typeof val === 'object' && Object.keys(val).length === 0) {
+                lines.push(spaces + '  ' + kStr + ': {}');
+              } else {
+                lines.push(spaces + '  ' + kStr + ':');
+                jsonToYamlLines(val, indent + 2, lines, false);
+              }
+            }
+          }
         }
       } else {
-        result += '\n' + spaces + '- ' + jsonToYaml(item, 0);
+        const valStr = item === null ? 'null' : 
+          typeof item === 'string' ? yamlQuoteString(item) : String(item);
+        lines.push(spaces + '- ' + valStr);
       }
     }
-    return result;
+    return;
   }
   
   if (typeof value === 'object') {
     const keys = Object.keys(value);
     if (keys.length === 0) {
-      return '{}';
+      lines.push(prefix + '{}');
+      return;
     }
     
-    let result = '';
-    let first = true;
-    for (const key of keys) {
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
       const val = value[key];
-      const keyStr = key.includes(':') || key.includes(' ') || key.startsWith('@') 
-        ? '"' + key + '"' 
-        : key;
-      
-      if (!first) {
-        result += '\n' + spaces;
-      }
-      first = false;
+      const keyStr = yamlQuoteKey(key);
+      const linePrefix = (i === 0 && inlineFirst) ? '' : spaces;
       
       if (val === null || typeof val !== 'object') {
-        result += keyStr + ': ' + jsonToYaml(val, 0);
+        const valStr = val === null ? 'null' : 
+          typeof val === 'string' ? yamlQuoteString(val) : String(val);
+        lines.push(linePrefix + keyStr + ': ' + valStr);
       } else if (Array.isArray(val) && val.length === 0) {
-        result += keyStr + ': []';
+        lines.push(linePrefix + keyStr + ': []');
       } else if (typeof val === 'object' && Object.keys(val).length === 0) {
-        result += keyStr + ': {}';
+        lines.push(linePrefix + keyStr + ': {}');
       } else {
-        const yaml = jsonToYaml(val, indent + 1);
-        if (yaml.startsWith('\n')) {
-          result += keyStr + ':' + yaml;
-        } else {
-          result += keyStr + ': ' + yaml;
-        }
+        lines.push(linePrefix + keyStr + ':');
+        jsonToYamlLines(val, indent + 1, lines, false);
       }
     }
-    return result;
+    return;
   }
   
-  return String(value);
+  lines.push(prefix + String(value));
 }
 
 export default {
