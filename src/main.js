@@ -244,6 +244,75 @@ function setFrameContent(content) {
   });
 }
 
+/**
+ * Generate a JSON-LD frame from the current document
+ * Extracts @context and @type to create a matching frame
+ */
+function generateFrameFromDocument() {
+  const content = getJsonLdContent();
+  if (!content.trim()) {
+    showToast('No JSON-LD document to generate frame from', 'warning');
+    return;
+  }
+  
+  let doc;
+  try {
+    doc = JSON.parse(content);
+  } catch (e) {
+    showToast('Invalid JSON in document', 'error');
+    return;
+  }
+  
+  // Build frame from document
+  const frame = {};
+  
+  // Copy @context
+  if (doc['@context']) {
+    frame['@context'] = doc['@context'];
+  }
+  
+  // Copy @type
+  if (doc['@type']) {
+    frame['@type'] = doc['@type'];
+  }
+  
+  // If no @type, try to find one in the document structure
+  if (!frame['@type']) {
+    // Look for @type in nested objects
+    const findType = (obj) => {
+      if (typeof obj !== 'object' || obj === null) return null;
+      if (obj['@type']) return obj['@type'];
+      for (const val of Object.values(obj)) {
+        if (Array.isArray(val)) {
+          for (const item of val) {
+            const type = findType(item);
+            if (type) return type;
+          }
+        } else {
+          const type = findType(val);
+          if (type) return type;
+        }
+      }
+      return null;
+    };
+    const foundType = findType(doc);
+    if (foundType) {
+      frame['@type'] = foundType;
+    }
+  }
+  
+  // Add @explicit to ensure only matching types are returned
+  frame['@explicit'] = true;
+  
+  setFrameContent(frame);
+  showToast('Frame generated from document', 'success');
+  
+  // Re-process if we're on framed view
+  if (state.currentView === 'framed') {
+    processJsonLd();
+  }
+}
+
 function getContextContent() {
   if (!state.contextEditor) return '';
   return state.contextEditor.state.doc.toString();
@@ -798,6 +867,9 @@ function initEventListeners() {
   
   // Generate SHACL
   document.getElementById('generate-shacl-btn')?.addEventListener('click', generateShaclShapes);
+  
+  // Generate Frame from current document
+  document.getElementById('generate-frame-btn')?.addEventListener('click', generateFrameFromDocument);
   
   // Load SHACL
   document.getElementById('load-shacl-btn')?.addEventListener('click', loadShaclFile);
