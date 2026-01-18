@@ -322,18 +322,37 @@ export async function frame(doc, frameDoc) {
 
 /**
  * Convert JSON-LD to N-Quads format
+ * Note: This requires valid RDF-compatible JSON-LD. Common issues:
+ * - Invalid URI schemes (must be http:, https:, urn:, etc.)
+ * - Properties without proper @id mappings in context
  */
 export async function toNQuads(doc) {
   try {
     const nquads = await jsonld.toRDF(doc, { format: 'application/n-quads' });
     return { success: true, data: nquads };
   } catch (error) {
-    return { success: false, error: error.message };
+    console.error('toNQuads error:', error);
+    // Provide more helpful error messages
+    let errorMessage = error?.message || String(error);
+    
+    if (errorMessage.includes('termType') || errorMessage.includes('null') || errorMessage.includes('Cannot read properties')) {
+      errorMessage = `RDF conversion failed. This usually means:\n\n` +
+        `• Some @id values use undefined prefixes (e.g., "sdt:" if not defined in @context)\n` +
+        `• Some @id values use invalid URI schemes (e.g., "data:" is reserved for data URIs)\n` +
+        `• Properties without proper @id mappings in the @context\n` +
+        `• Some terms couldn't be resolved to valid URIs\n\n` +
+        `Tip: Check your @context defines all prefixes used in @id values.\n` +
+        `Use "Expanded" view to see how terms are being resolved.\n\n` +
+        `Original error: ${errorMessage}`;
+    }
+    
+    return { success: false, error: errorMessage };
   }
 }
 
 /**
  * Canonize (normalize) a JSON-LD document using URDNA2015
+ * Note: Same requirements as toNQuads - document must be RDF-compatible
  */
 export async function canonize(doc) {
   try {
@@ -344,7 +363,22 @@ export async function canonize(doc) {
     });
     return { success: true, data: canonized };
   } catch (error) {
-    return { success: false, error: error.message };
+    console.error('canonize error:', error);
+    // Provide more helpful error messages
+    let errorMessage = error?.message || String(error);
+    
+    if (errorMessage.includes('termType') || errorMessage.includes('null') || errorMessage.includes('Cannot read properties')) {
+      errorMessage = `Canonization failed. This usually means:\n\n` +
+        `• Some @id values use undefined prefixes (e.g., "sdt:" if not defined in @context)\n` +
+        `• Some @id values use invalid URI schemes (e.g., "data:" is reserved for data URIs)\n` +
+        `• Properties without proper @id mappings in the @context\n` +
+        `• Some terms couldn't be resolved to valid URIs\n\n` +
+        `Tip: Check your @context defines all prefixes used in @id values.\n` +
+        `Use "Expanded" view to see how terms are being resolved.\n\n` +
+        `Original error: ${errorMessage}`;
+    }
+    
+    return { success: false, error: errorMessage };
   }
 }
 
