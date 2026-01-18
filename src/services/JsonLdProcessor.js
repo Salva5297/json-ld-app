@@ -57,6 +57,42 @@ const CORS_PROXIES = [
 ];
 
 /**
+ * Normalize a context document to ensure it has the proper structure
+ * Some contexts are just the context object without the @context wrapper
+ * @param {object} doc - The fetched document
+ * @param {string} url - The original URL (for logging)
+ * @returns {object} Properly structured context document
+ */
+function normalizeContextDocument(doc, url) {
+  if (!doc || typeof doc !== 'object') {
+    console.warn(`Invalid context document from ${url}`);
+    return { '@context': {} };
+  }
+  
+  // If the document already has @context at root level, it's properly structured
+  if (doc['@context'] !== undefined) {
+    return doc;
+  }
+  
+  // Check if this looks like a context object (has prefixes or term definitions)
+  // Context objects typically have string values (prefixes) or objects with @id/@type
+  const keys = Object.keys(doc);
+  const looksLikeContext = keys.some(key => {
+    const val = doc[key];
+    return typeof val === 'string' || 
+           (typeof val === 'object' && val !== null && (val['@id'] || val['@type'] || val['@container']));
+  });
+  
+  if (looksLikeContext) {
+    console.log(`Wrapping raw context object from ${url}`);
+    return { '@context': doc };
+  }
+  
+  // Return as-is if we can't determine the structure
+  return doc;
+}
+
+/**
  * Fetch a remote document with CORS handling
  * @param {string} url - The URL to fetch
  * @returns {Promise<object>} The fetched document
@@ -64,44 +100,54 @@ const CORS_PROXIES = [
 async function fetchWithCorsRetry(url) {
   // Check cache first
   if (remoteContextCache.has(url)) {
+    console.log(`Using cached context for ${url}`);
     return remoteContextCache.get(url);
   }
+
+  console.log(`Fetching remote context: ${url}`);
 
   // Try direct fetch first
   try {
     const response = await fetch(url, {
       headers: {
-        'Accept': 'application/ld+json, application/json, */*'
+        'Accept': 'application/ld+json, application/json, text/plain, */*'
       },
       mode: 'cors'
     });
     
     if (response.ok) {
-      const contentType = response.headers.get('content-type') || '';
+      // Always get as text first, then parse - more reliable for various content-types
+      const text = await response.text();
       let document;
       
-      if (contentType.includes('json')) {
-        document = await response.json();
-      } else {
-        // Try to parse as JSON anyway
-        const text = await response.text();
+      try {
         document = JSON.parse(text);
+      } catch (parseError) {
+        console.error(`Failed to parse JSON from ${url}:`, parseError);
+        throw parseError;
       }
       
+      // Normalize the document structure
+      document = normalizeContextDocument(document, url);
+      
       remoteContextCache.set(url, document);
+      console.log(`Successfully fetched and cached context from ${url}`);
       return document;
+    } else {
+      console.log(`Direct fetch returned ${response.status} for ${url}`);
     }
   } catch (directError) {
-    console.log(`Direct fetch failed for ${url}, trying CORS proxies...`);
+    console.log(`Direct fetch failed for ${url}:`, directError.message, '- trying CORS proxies...');
   }
 
   // Try CORS proxies
   for (const proxyFn of CORS_PROXIES) {
     try {
       const proxyUrl = proxyFn(url);
+      console.log(`Trying CORS proxy for ${url}`);
       const response = await fetch(proxyUrl, {
         headers: {
-          'Accept': 'application/ld+json, application/json, */*'
+          'Accept': 'application/ld+json, application/json, text/plain, */*'
         }
       });
       
@@ -120,6 +166,9 @@ async function fetchWithCorsRetry(url) {
             throw e;
           }
         }
+        
+        // Normalize the document structure
+        document = normalizeContextDocument(document, url);
         
         remoteContextCache.set(url, document);
         console.log(`Successfully fetched ${url} via CORS proxy`);
