@@ -18,6 +18,13 @@ import * as d3 from 'd3';
 import jsonldProcessor from './services/JsonLdProcessor.js';
 import shaclValidator from './services/ShaclValidator.js';
 import shaclGenerator from './services/ShaclGenerator.js';
+import documentationGenerator, { 
+  generateContextDocumentation as generateContextDoc, 
+  generateContextMarkdownDocumentation as generateContextMdDoc,
+  generateContextPdfDocumentation as generateContextPdfDoc,
+  generateContextDiagramsOnly as generateContextDiagramsDoc
+} from './services/DocumentationGenerator.js';
+import contextFromShacl from './services/ContextFromShacl.js';
 
 // Data
 import { examples, defaultFrame } from './data/examples.js';
@@ -425,6 +432,12 @@ function applyContextToJsonLd() {
     // Handle both string URLs and objects
     try {
       context = JSON.parse(contextStr);
+      
+      // If the parsed context has an @context wrapper, extract the inner content
+      // This handles cases where the context editor contains { "@context": {...} }
+      if (context && typeof context === 'object' && context['@context'] && Object.keys(context).length === 1) {
+        context = context['@context'];
+      }
     } catch (e) {
       // Maybe it's a simple URL string
       context = contextStr.trim().replace(/^["']|["']$/g, '');
@@ -848,6 +861,24 @@ function initEventListeners() {
   
   // Generate SHACL
   document.getElementById('generate-shacl-btn')?.addEventListener('click', generateShaclShapes);
+  
+  // Generate Context from SHACL
+  document.getElementById('generate-context-from-shacl-btn')?.addEventListener('click', generateContextFromShaclShapes);
+  
+  // Generate Documentation
+  document.getElementById('generate-doc-btn')?.addEventListener('click', generateHtmlDocumentation);
+  document.getElementById('generate-md-doc-btn')?.addEventListener('click', generateMarkdownDocumentation);
+  document.getElementById('generate-pdf-doc-btn')?.addEventListener('click', generatePdfDocumentation);
+  document.getElementById('generate-mermaid-btn')?.addEventListener('click', generateMermaidDiagrams);
+  
+  // Context-only documentation
+  document.getElementById('generate-context-doc-btn')?.addEventListener('click', generateContextHtmlDocumentation);
+  document.getElementById('generate-context-md-btn')?.addEventListener('click', generateContextMarkdownDocumentation);
+  document.getElementById('generate-context-pdf-btn')?.addEventListener('click', generateContextPdfDocumentation);
+  document.getElementById('generate-context-diagrams-btn')?.addEventListener('click', generateContextDiagramsDocumentation);
+  
+  // Documentation dropdown toggle
+  setupDocumentationDropdown();
   
   // Generate Frame from current document
   document.getElementById('generate-frame-btn')?.addEventListener('click', generateFrameFromDocument);
@@ -1476,6 +1507,374 @@ async function loadShaclFile() {
   } catch (e) {
     showToast('Failed to load file', 'error');
   }
+}
+
+// ============================================
+// Context from SHACL Generation
+// ============================================
+async function generateContextFromShaclShapes() {
+  const shaclContent = getShaclContent();
+  if (!shaclContent.trim()) {
+    showToast('Please enter SHACL shapes first', 'warning');
+    return;
+  }
+  
+  setStatus('processing', 'Generating context from SHACL...');
+  
+  try {
+    const result = await contextFromShacl.generateContextString(shaclContent);
+    
+    if (result.success) {
+      // Update the context editor with the generated context
+      if (state.contextEditor) {
+        state.contextEditor.dispatch({
+          changes: { from: 0, to: state.contextEditor.state.doc.length, insert: result.data }
+        });
+      }
+      showToast('JSON-LD context generated from SHACL shapes', 'success');
+    } else {
+      showToast(`Generation failed: ${result.error}`, 'error');
+    }
+  } catch (e) {
+    showToast(`Generation failed: ${e.message}`, 'error');
+  }
+  
+  setStatus('ready', 'Ready');
+}
+
+// ============================================
+// Documentation Generation
+// ============================================
+async function generateHtmlDocumentation() {
+  let doc;
+  try {
+    doc = JSON.parse(getJsonLdContent());
+  } catch (e) {
+    showToast('Invalid JSON-LD document', 'error');
+    return;
+  }
+  
+  setStatus('processing', 'Generating HTML documentation...');
+  
+  try {
+    const result = await documentationGenerator.generateDocumentation(doc, {
+      theme: state.theme,
+      includeContext: true
+    });
+    
+    if (result.success) {
+      // Download the HTML file
+      storage.downloadFile(result.data, 'jsonld-documentation.html', 'text/html');
+      showToast('HTML documentation generated and downloaded', 'success');
+    } else {
+      showToast(`Generation failed: ${result.error}`, 'error');
+    }
+  } catch (e) {
+    showToast(`Generation failed: ${e.message}`, 'error');
+  }
+  
+  setStatus('ready', 'Ready');
+}
+
+async function generateMarkdownDocumentation() {
+  let doc;
+  try {
+    doc = JSON.parse(getJsonLdContent());
+  } catch (e) {
+    showToast('Invalid JSON-LD document', 'error');
+    return;
+  }
+  
+  setStatus('processing', 'Generating Markdown documentation...');
+  
+  try {
+    const result = await documentationGenerator.generateMarkdownDocumentation(doc);
+    
+    if (result.success) {
+      // Download the Markdown file
+      storage.downloadFile(result.data, 'jsonld-documentation.md', 'text/markdown');
+      showToast('Markdown documentation generated and downloaded', 'success');
+    } else {
+      showToast(`Generation failed: ${result.error}`, 'error');
+    }
+  } catch (e) {
+    showToast(`Generation failed: ${e.message}`, 'error');
+  }
+  
+  setStatus('ready', 'Ready');
+}
+
+async function generatePdfDocumentation() {
+  let doc;
+  try {
+    doc = JSON.parse(getJsonLdContent());
+  } catch (e) {
+    showToast('Invalid JSON-LD document', 'error');
+    return;
+  }
+  
+  setStatus('processing', 'Generating PDF documentation...');
+  
+  try {
+    const result = await documentationGenerator.generatePdfDocumentation(doc);
+    
+    if (result.success) {
+      // Open in new window for PDF printing
+      const printWindow = window.open('', '_blank', 'width=900,height=700');
+      if (printWindow) {
+        printWindow.document.write(result.data);
+        printWindow.document.close();
+        
+        // Wait for Mermaid to render, then trigger print
+        printWindow.onload = function() {
+          setTimeout(() => {
+            printWindow.print();
+          }, 1500); // Give Mermaid time to render
+        };
+        
+        showToast('PDF documentation opened. Use browser print to save as PDF.', 'success');
+      } else {
+        // Fallback: download as HTML
+        storage.downloadFile(result.data, 'jsonld-documentation-print.html', 'text/html');
+        showToast('PDF window blocked. Downloaded HTML instead. Open and print to PDF.', 'warning');
+      }
+    } else {
+      showToast(`Generation failed: ${result.error}`, 'error');
+    }
+  } catch (e) {
+    showToast(`Generation failed: ${e.message}`, 'error');
+  }
+  
+  setStatus('ready', 'Ready');
+}
+
+async function generateMermaidDiagrams() {
+  let doc;
+  try {
+    doc = JSON.parse(getJsonLdContent());
+  } catch (e) {
+    showToast('Invalid JSON-LD document', 'error');
+    return;
+  }
+  
+  setStatus('processing', 'Generating Mermaid diagrams...');
+  
+  try {
+    const result = await documentationGenerator.generateMermaidDiagramsOnly(doc);
+    
+    if (result.success) {
+      // Create a markdown file with all diagrams
+      let content = '# JSON-LD RDF Structure Diagrams\n\n';
+      content += 'Generated Mermaid diagrams for your JSON-LD document.\n\n';
+      
+      content += '## RDF Graph Notation Legend\n\n';
+      content += '| Shape | Meaning |\n';
+      content += '|-------|--------|\n';
+      content += '| 🔵 Rounded box `([...])` | IRI/Resource (URI) |\n';
+      content += '| 🟡 Rectangle `[...]` | Literal value |\n';
+      content += '| 🟣 Dashed circle `((...))` | Blank node |\n';
+      content += '| 🟢 Hexagon `{{...}}` | rdf:type (class) |\n';
+      content += '| → Arrow with label | Property (predicate) |\n\n';
+      
+      content += '## RDF Graph\n\n```mermaid\n' + result.data.rdfGraph + '```\n\n';
+      content += '## Schema View (Classes)\n\n```mermaid\n' + result.data.classDiagram + '```\n\n';
+      content += '## Entity-Relationship Diagram\n\n```mermaid\n' + result.data.erDiagram + '```\n';
+      
+      storage.downloadFile(content, 'jsonld-rdf-diagrams.md', 'text/markdown');
+      showToast('Mermaid diagrams generated and downloaded', 'success');
+    } else {
+      showToast(`Generation failed: ${result.error}`, 'error');
+    }
+  } catch (e) {
+    showToast(`Generation failed: ${e.message}`, 'error');
+  }
+  
+  setStatus('ready', 'Ready');
+}
+
+// ============================================
+// Context-Only Documentation
+// ============================================
+async function generateContextHtmlDocumentation() {
+  let doc;
+  try {
+    doc = JSON.parse(getJsonLdContent());
+  } catch (e) {
+    showToast('Invalid JSON-LD document', 'error');
+    return;
+  }
+  
+  if (!doc['@context']) {
+    showToast('No @context found in document', 'warning');
+    return;
+  }
+  
+  setStatus('processing', 'Generating context documentation (HTML)...');
+  
+  try {
+    const result = await generateContextDoc(doc, { theme: state.theme });
+    
+    if (result.success) {
+      storage.downloadFile(result.data, 'jsonld-context-documentation.html', 'text/html');
+      showToast('Context documentation (HTML) generated and downloaded', 'success');
+    } else {
+      showToast(`Generation failed: ${result.error}`, 'error');
+    }
+  } catch (e) {
+    showToast(`Generation failed: ${e.message}`, 'error');
+  }
+  
+  setStatus('ready', 'Ready');
+}
+
+async function generateContextMarkdownDocumentation() {
+  let doc;
+  try {
+    doc = JSON.parse(getJsonLdContent());
+  } catch (e) {
+    showToast('Invalid JSON-LD document', 'error');
+    return;
+  }
+  
+  if (!doc['@context']) {
+    showToast('No @context found in document', 'warning');
+    return;
+  }
+  
+  setStatus('processing', 'Generating context documentation (Markdown)...');
+  
+  try {
+    const result = await generateContextMdDoc(doc);
+    
+    if (result.success) {
+      storage.downloadFile(result.data, 'jsonld-context-documentation.md', 'text/markdown');
+      showToast('Context documentation (Markdown) generated and downloaded', 'success');
+    } else {
+      showToast(`Generation failed: ${result.error}`, 'error');
+    }
+  } catch (e) {
+    showToast(`Generation failed: ${e.message}`, 'error');
+  }
+  
+  setStatus('ready', 'Ready');
+}
+
+async function generateContextPdfDocumentation() {
+  let doc;
+  try {
+    doc = JSON.parse(getJsonLdContent());
+  } catch (e) {
+    showToast('Invalid JSON-LD document', 'error');
+    return;
+  }
+  
+  if (!doc['@context']) {
+    showToast('No @context found in document', 'warning');
+    return;
+  }
+  
+  setStatus('processing', 'Generating context documentation (PDF)...');
+  
+  try {
+    const result = await generateContextPdfDoc(doc);
+    
+    if (result.success) {
+      // Open in new window for PDF printing
+      const printWindow = window.open('', '_blank', 'width=900,height=700');
+      if (printWindow) {
+        printWindow.document.write(result.data);
+        printWindow.document.close();
+        
+        // Wait for Mermaid to render, then trigger print
+        printWindow.onload = function() {
+          setTimeout(() => {
+            printWindow.print();
+          }, 1500);
+        };
+        
+        showToast('Context PDF opened. Use browser print to save as PDF.', 'success');
+      } else {
+        storage.downloadFile(result.data, 'jsonld-context-documentation-print.html', 'text/html');
+        showToast('PDF window blocked. Downloaded HTML instead.', 'warning');
+      }
+    } else {
+      showToast(`Generation failed: ${result.error}`, 'error');
+    }
+  } catch (e) {
+    showToast(`Generation failed: ${e.message}`, 'error');
+  }
+  
+  setStatus('ready', 'Ready');
+}
+
+async function generateContextDiagramsDocumentation() {
+  let doc;
+  try {
+    doc = JSON.parse(getJsonLdContent());
+  } catch (e) {
+    showToast('Invalid JSON-LD document', 'error');
+    return;
+  }
+  
+  if (!doc['@context']) {
+    showToast('No @context found in document', 'warning');
+    return;
+  }
+  
+  setStatus('processing', 'Generating context diagrams...');
+  
+  try {
+    const result = await generateContextDiagramsDoc(doc);
+    
+    if (result.success) {
+      storage.downloadFile(result.data, 'jsonld-context-diagrams.md', 'text/markdown');
+      showToast('Context diagrams generated and downloaded', 'success');
+    } else {
+      showToast(`Generation failed: ${result.error}`, 'error');
+    }
+  } catch (e) {
+    showToast(`Generation failed: ${e.message}`, 'error');
+  }
+  
+  setStatus('ready', 'Ready');
+}
+
+// ============================================
+// Documentation Dropdown Setup
+// ============================================
+function setupDocumentationDropdown() {
+  const container = document.querySelector('.dropdown-container');
+  const trigger = document.getElementById('docs-dropdown-btn');
+  const menu = document.getElementById('docs-dropdown-menu');
+  
+  if (!container || !trigger || !menu) return;
+  
+  // Toggle dropdown on button click
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    container.classList.toggle('open');
+  });
+  
+  // Close dropdown when clicking on menu items
+  menu.querySelectorAll('.dropdown-item').forEach(item => {
+    item.addEventListener('click', () => {
+      container.classList.remove('open');
+    });
+  });
+  
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!container.contains(e.target)) {
+      container.classList.remove('open');
+    }
+  });
+  
+  // Close dropdown on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      container.classList.remove('open');
+    }
+  });
 }
 
 // ============================================

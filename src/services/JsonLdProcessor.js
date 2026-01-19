@@ -1124,5 +1124,6 @@ export default {
   validate,
   registerContext,
   clearContextCache,
-  getContextCacheSize
+  getContextCacheSize,
+  fetchRemoteContext: fetchWithCorsRetry
 };

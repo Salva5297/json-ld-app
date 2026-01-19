@@ -51,6 +51,89 @@
           <span>Share</span>
         </button>
         <div class="divider"></div>
+        
+        <!-- Documentation Dropdown -->
+        <div class="dropdown-container header-dropdown">
+          <button id="docs-dropdown-btn" class="header-btn dropdown-trigger" title="Generate documentation">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
+            <span>Generate Documentation</span>
+            <svg class="dropdown-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          <div class="dropdown-menu dropdown-menu-right" id="docs-dropdown-menu">
+            <div class="dropdown-section">
+              <span class="dropdown-label">Full Document</span>
+              <button id="generate-doc-btn" class="dropdown-item" title="Generate HTML documentation">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                </svg>
+                HTML Documentation
+              </button>
+              <button id="generate-md-doc-btn" class="dropdown-item" title="Generate Markdown documentation">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <path d="M9 13l2 2 4-4" />
+                </svg>
+                Markdown Documentation
+              </button>
+              <button id="generate-pdf-doc-btn" class="dropdown-item" title="Generate PDF documentation">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+                PDF Documentation
+              </button>
+              <button id="generate-mermaid-btn" class="dropdown-item" title="Generate Mermaid diagrams">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="8" y="14" width="8" height="7" rx="1" />
+                </svg>
+                Diagrams Only
+              </button>
+            </div>
+            <div class="dropdown-divider"></div>
+            <div class="dropdown-section">
+              <span class="dropdown-label">Context Only</span>
+              <button id="generate-context-doc-btn" class="dropdown-item" title="Context documentation (HTML)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 6v6l4 2" />
+                </svg>
+                Context (HTML)
+              </button>
+              <button id="generate-context-md-btn" class="dropdown-item" title="Context documentation (Markdown)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M9 12l2 2 4-4" />
+                </svg>
+                Context (Markdown)
+              </button>
+              <button id="generate-context-pdf-btn" class="dropdown-item" title="Context documentation (PDF)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 8 12 12 14 14" />
+                </svg>
+                Context (PDF)
+              </button>
+              <button id="generate-context-diagrams-btn" class="dropdown-item" title="Context diagrams only">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <rect x="9" y="9" width="6" height="6" rx="1" />
+                </svg>
+                Context Diagrams Only
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="divider"></div>
         <button id="theme-toggle" class="icon-btn" title="Toggle Theme">
           <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             stroke-width="2">
@@ -308,6 +391,14 @@
               <line x1="9" y1="15" x2="15" y2="15" />
             </svg>
             Generate from JSON-LD
+          </button>
+          <button id="generate-context-from-shacl-btn" class="secondary-btn" title="Generate JSON-LD Context from SHACL shapes">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5z" />
+              <path d="M2 17l10 5 10-5" />
+              <path d="M2 12l10 5 10-5" />
+            </svg>
+            Generate Context
           </button>
           <button id="load-shacl-btn" class="secondary-btn">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
